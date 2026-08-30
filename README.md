@@ -18,7 +18,7 @@ GitNote is a local-first notes app for people who keep Markdown files in GitHub 
 ## A simple workflow
 
 1. Sign in with your GitHub account.
-2. Choose a public Markdown repository, or enter its `owner/repository` address.
+2. Choose a public or private Markdown repository, or enter its `owner/repository` address.
 3. Clone it to your device.
 4. Browse, create, and edit notes—even while offline.
 5. Review the working copy's changes and sync them back to GitHub.
@@ -31,6 +31,6 @@ GitNote is designed for writers, developers, researchers, and knowledge workers 
 
 ## Current availability
 
-GitNote is currently an early iPhone and iPad MVP. It supports public GitHub repositories. Private repository cloning, pulling remote changes, branch management, and merge-conflict resolution are planned but not yet available. Sync currently takes an optimistic commit-and-push approach.
+GitNote is currently an early iPhone and iPad MVP. It supports public and authorized private GitHub repositories. Pulling remote changes, branch management, and merge-conflict resolution are planned but not yet available. Sync currently takes an optimistic commit-and-push approach.
 
 For build instructions and technical details, see the [development guide](docs/DEVELOPMENT.md). The [project plan](PLAN.md) describes the longer-term direction.

@@ -70,6 +70,8 @@ actor GitHubClient {
 }
 
 actor GitHubOAuthClient {
+    static let requestedScope = "repo"
+
     enum OAuthError: LocalizedError {
         case missingClientID
         case invalidResponse
@@ -140,7 +142,7 @@ actor GitHubOAuthClient {
     func begin(clientID: String) async throws -> GitHubDeviceAuthorization {
         let request = try formRequest(
             url: "https://github.com/login/device/code",
-            fields: ["client_id": clientID, "scope": "public_repo"]
+            fields: ["client_id": clientID, "scope": Self.requestedScope]
         )
         let (data, response) = try await session.data(for: request)
         try validate(response: response, data: data)

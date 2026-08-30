@@ -53,6 +53,7 @@ final class AppModel: ObservableObject {
     func startGitHubSignIn() {
         guard githubSignInTask == nil else { return }
 
+        errorMessage = nil
         let signInID = UUID()
         githubSignInID = signInID
         isGitHubSignInInProgress = true
@@ -89,12 +90,23 @@ final class AppModel: ObservableObject {
             )
             try Task.checkCancellation()
             let user = try await github.currentUser(token: token)
-            let repositories = try await github.repositories(token: token)
             try Task.checkCancellation()
+
+            // Persist as soon as GitHub has validated the token. Repository
+            // discovery is useful account data, but it must not decide whether
+            // a successful authorization survives an API or connectivity error.
             try keychain.saveToken(token)
+            guard keychain.readToken() == token else {
+                throw KeychainStore.KeychainError.tokenNotPersisted
+            }
             hasStoredToken = true
             githubUser = user
-            remoteRepositories = repositories
+
+            do {
+                remoteRepositories = try await github.repositories(token: token)
+            } catch {
+                present(error)
+            }
         } catch is CancellationError {
             return
         } catch {
@@ -125,9 +137,8 @@ final class AppModel: ObservableObject {
     func refreshGitHubConnection() async throws {
         guard let token = keychain.readToken() else { return }
         let user = try await github.currentUser(token: token)
-        let repositories = try await github.repositories(token: token)
         githubUser = user
-        remoteRepositories = repositories
+        remoteRepositories = try await github.repositories(token: token)
     }
 
     func refreshRemoteRepositories() async {
@@ -155,8 +166,9 @@ final class AppModel: ObservableObject {
     }
 
     func clone(_ repository: GitHubRepository) async -> Bool {
-        guard !repository.isPrivate else {
-            errorMessage = "Private cloning is not enabled in this MVP. GitNote will add secure credential callbacks next."
+        let token = keychain.readToken()
+        guard !repository.isPrivate || token != nil else {
+            errorMessage = "Sign in with GitHub from Account settings before cloning a private repository."
             return false
         }
         guard !workspaces.contains(where: { $0.repositoryID == repository.id }) else {
@@ -168,7 +180,11 @@ final class AppModel: ObservableObject {
             try await files.prepareRoot()
             let folderName = repository.fullName.replacingOccurrences(of: "/", with: "--")
             let workspace = Workspace(repository: repository, localFolderName: folderName)
-            try await git.clone(from: repository.cloneURL, to: WorkspacePaths.repositoryURL(for: workspace))
+            try await git.clone(
+                from: repository.cloneURL,
+                to: WorkspacePaths.repositoryURL(for: workspace),
+                token: token
+            )
             workspaces.append(workspace)
             workspaces.sort { $0.fullName.localizedCaseInsensitiveCompare($1.fullName) == .orderedAscending }
             try metadata.save(workspaces)

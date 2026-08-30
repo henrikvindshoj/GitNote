@@ -52,7 +52,7 @@ struct AccountView: View {
                     } header: {
                         Text("GitHub")
                     } footer: {
-                        Text("GitNote requests access to public repositories so it can browse and sync them. GitHub opens in your browser; the resulting token is stored in Keychain.")
+                        Text("GitNote requests repository access so it can browse and sync public and private repositories. GitHub opens in your browser; the resulting token is stored in Keychain.")
                     }
                 }
 

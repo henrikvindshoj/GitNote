@@ -3,7 +3,7 @@ import SwiftUI
 struct AddRepositoryView: View {
     private enum Source: String, CaseIterable, Identifiable {
         case account = "GitHub account"
-        case address = "Public address"
+        case address = "Repository address"
         var id: Self { self }
     }
 
@@ -37,7 +37,7 @@ struct AddRepositoryView: View {
 
                 switch source {
                 case .address:
-                    publicAddressForm
+                    addressForm
                 case .account:
                     accountRepositories
                 }
@@ -52,7 +52,7 @@ struct AddRepositoryView: View {
         }
     }
 
-    private var publicAddressForm: some View {
+    private var addressForm: some View {
         Form {
             Section {
                 TextField("owner/repository", text: $address)
@@ -63,9 +63,9 @@ struct AddRepositoryView: View {
                 Button("Find and Clone") { cloneAddress() }
                     .disabled(address.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             } header: {
-                Text("Public GitHub repository")
+                Text("GitHub repository")
             } footer: {
-                Text("You can also paste a full https://github.com URL. A real Git working copy will be stored under Files → GitNote → Repositories.")
+                Text("You can also paste a full https://github.com URL. Sign in first for a private repository. A real Git working copy will be stored under Files → GitNote → Repositories.")
             }
         }
     }
@@ -97,14 +97,8 @@ struct AddRepositoryView: View {
                             }
                         }
                         Spacer()
-                        if repository.isPrivate {
-                            Text("Coming next")
-                                .font(.caption2)
-                                .foregroundStyle(.secondary)
-                        }
                     }
                 }
-                .disabled(repository.isPrivate)
             }
             .searchable(text: $search, prompt: "Search repositories")
             .refreshable { await model.refreshRemoteRepositories() }

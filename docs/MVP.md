@@ -4,7 +4,7 @@
 
 Prove the smallest useful GitNote loop on a physical iPhone or iPad:
 
-1. Connect to GitHub or enter a public `owner/repository` address.
+1. Connect to GitHub or enter a public or private `owner/repository` address.
 2. Clone more than one real repository locally.
 3. Read and edit Markdown offline.
 4. Observe the edit in Git status.
@@ -12,7 +12,7 @@ Prove the smallest useful GitNote loop on a physical iPhone or iPad:
 
 ## Acceptance checklist
 
-- [x] A public GitHub repository can be resolved and cloned.
+- [x] Public and authorized private GitHub repositories can be resolved and cloned.
 - [x] Multiple cloned repositories persist across app launches.
 - [x] A user can authorize GitNote through GitHub's OAuth device flow, with credentials stored in Keychain.
 - [x] `.md` and `.markdown` files are discoverable without exposing `.git` internals.
@@ -24,7 +24,6 @@ Prove the smallest useful GitNote loop on a physical iPhone or iPad:
 - [x] Cloned repositories remain readable offline.
 - [x] The Documents container is visible in Files.
 - [ ] Validate Obsidian round-trip behavior on physical devices and document the exact supported location.
-- [ ] Add credential callbacks for private clone and fetch.
 - [ ] Add selective staging, safe pull, and conflict resolution.
 
 ## Manual test
@@ -43,4 +42,4 @@ Use a small public fixture repository containing nested Markdown, front matter, 
 
 ## Explicit limitations
 
-The current OAuth request uses the `public_repo` scope and the clone action remains limited to public repositories. SwiftGitX's high-level clone API does not expose clone credential callbacks in the pinned version. Putting tokens in URLs would leak credentials into Git configuration, so GitNote does not use that workaround. Push authentication uses an in-memory libgit2 credential callback and never writes the OAuth token into the clone.
+The OAuth request uses the `repo` scope. Clone and push authentication use in-memory libgit2 credential callbacks and never write the OAuth token into clone URLs or Git configuration.
