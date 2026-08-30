@@ -13,8 +13,16 @@ struct KeychainStore: Sendable {
         }
     }
 
-    private let service = "com.henrikvindshoj.GitNote"
-    private let account = "github-token"
+    private let service: String
+    private let account: String
+
+    init(
+        service: String = "com.henrikvindshoj.GitNote",
+        account: String = "github-token"
+    ) {
+        self.service = service
+        self.account = account
+    }
 
     func readToken() -> String? {
         let query: [String: Any] = [

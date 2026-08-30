@@ -9,15 +9,20 @@ final class AppModel: ObservableObject {
     @Published private(set) var filesByWorkspace: [Workspace.ID: [MarkdownFile]] = [:]
     @Published private(set) var changesByWorkspace: [Workspace.ID: [RepositoryChange]] = [:]
     @Published private(set) var hasStoredToken: Bool
+    @Published private(set) var githubDeviceAuthorization: GitHubDeviceAuthorization?
+    @Published private(set) var isGitHubSignInInProgress = false
     @Published private(set) var isBusy = false
     @Published private(set) var busyMessage: String?
     @Published var errorMessage: String?
 
     private let github = GitHubClient()
+    private let githubOAuth = GitHubOAuthClient()
     private let git = GitEngine()
     private let files = WorkspaceFileService()
     private let keychain = KeychainStore()
     private let metadata = WorkspaceMetadataStore()
+    private var githubSignInTask: Task<Void, Never>?
+    private var githubSignInID: UUID?
 
     init() {
         let loaded = metadata.load().filter {
@@ -39,31 +44,74 @@ final class AppModel: ObservableObject {
             if hasStoredToken {
                 try await refreshGitHubConnection()
             }
-            if let selectedWorkspace {
-                await refresh(selectedWorkspace)
-            }
+            await refreshAllWorkspaces()
         } catch {
             present(error)
         }
     }
 
-    func connect(token rawToken: String) async -> Bool {
-        let token = rawToken.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !token.isEmpty else {
-            errorMessage = "Enter a GitHub personal access token."
-            return false
-        }
+    func startGitHubSignIn() {
+        guard githubSignInTask == nil else { return }
 
-        return await performBusy(message: "Connecting to GitHub…") {
-            let user = try await github.currentUser(token: token)
-            try keychain.saveToken(token)
-            hasStoredToken = true
-            githubUser = user
-            remoteRepositories = try await github.repositories(token: token)
+        let signInID = UUID()
+        githubSignInID = signInID
+        isGitHubSignInInProgress = true
+        githubSignInTask = Task { [weak self] in
+            await self?.runGitHubSignIn(id: signInID)
         }
     }
 
+    func cancelGitHubSignIn() {
+        githubSignInTask?.cancel()
+        githubSignInTask = nil
+        githubSignInID = nil
+        githubDeviceAuthorization = nil
+        isGitHubSignInInProgress = false
+    }
+
+    private func runGitHubSignIn(id: UUID) async {
+        defer { finishGitHubSignIn(id: id) }
+
+        guard let clientID = GitHubOAuthClient.configuredClientID() else {
+            present(GitHubOAuthClient.OAuthError.missingClientID)
+            return
+        }
+
+        do {
+            let authorization = try await githubOAuth.begin(clientID: clientID)
+            try Task.checkCancellation()
+            guard githubSignInID == id else { return }
+            githubDeviceAuthorization = authorization
+
+            let token = try await githubOAuth.waitForToken(
+                authorization: authorization,
+                clientID: clientID
+            )
+            try Task.checkCancellation()
+            let user = try await github.currentUser(token: token)
+            let repositories = try await github.repositories(token: token)
+            try Task.checkCancellation()
+            try keychain.saveToken(token)
+            hasStoredToken = true
+            githubUser = user
+            remoteRepositories = repositories
+        } catch is CancellationError {
+            return
+        } catch {
+            present(error)
+        }
+    }
+
+    private func finishGitHubSignIn(id: UUID) {
+        guard githubSignInID == id else { return }
+        githubSignInTask = nil
+        githubSignInID = nil
+        githubDeviceAuthorization = nil
+        isGitHubSignInInProgress = false
+    }
+
     func disconnect() {
+        cancelGitHubSignIn()
         do {
             try keychain.deleteToken()
             hasStoredToken = false
@@ -84,7 +132,7 @@ final class AppModel: ObservableObject {
 
     func refreshRemoteRepositories() async {
         guard let token = keychain.readToken() else {
-            errorMessage = "Connect GitHub in Account settings first."
+            errorMessage = "Sign in with GitHub from Account settings first."
             return
         }
         _ = await performBusy(message: "Refreshing repositories…") {
@@ -140,6 +188,12 @@ final class AppModel: ObservableObject {
         }
     }
 
+    func refreshAllWorkspaces() async {
+        for workspace in workspaces {
+            await refresh(workspace)
+        }
+    }
+
     func read(_ file: MarkdownFile, in workspace: Workspace) async -> String? {
         do {
             return try await files.read(file, in: workspace)
@@ -178,6 +232,46 @@ final class AppModel: ObservableObject {
             )
             await refresh(workspace)
             return file
+        } catch {
+            present(error)
+            return nil
+        }
+    }
+
+    func sync(
+        _ workspace: Workspace,
+        message rawMessage: String,
+        authorName rawAuthorName: String,
+        authorEmail rawAuthorEmail: String
+    ) async -> RepositorySyncResult? {
+        let message = rawMessage.trimmingCharacters(in: .whitespacesAndNewlines)
+        let authorName = rawAuthorName.trimmingCharacters(in: .whitespacesAndNewlines)
+        let authorEmail = rawAuthorEmail.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !message.isEmpty, !authorName.isEmpty, authorEmail.contains("@") else {
+            errorMessage = "Enter a commit message, author name, and valid author email."
+            return nil
+        }
+
+        let currentChanges = changesByWorkspace[workspace.id] ?? []
+        guard !currentChanges.contains(where: { $0.kind == .conflicted }) else {
+            errorMessage = "This working copy contains conflicts. Conflict resolution will be added in a later update."
+            return nil
+        }
+        guard let token = keychain.readToken(), !token.isEmpty else {
+            errorMessage = "Sign in with GitHub in Account settings before syncing."
+            return nil
+        }
+
+        do {
+            let result = try await git.syncAll(
+                at: WorkspacePaths.repositoryURL(for: workspace),
+                message: message,
+                authorName: authorName,
+                authorEmail: authorEmail,
+                token: token
+            )
+            await refresh(workspace)
+            return result
         } catch {
             present(error)
             return nil

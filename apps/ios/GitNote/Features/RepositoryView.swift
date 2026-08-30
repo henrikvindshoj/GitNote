@@ -12,6 +12,7 @@ struct RepositoryView: View {
     @State private var section: Pane = .notes
     @State private var search = ""
     @State private var showingNewFile = false
+    @State private var showingSync = false
 
     private var files: [MarkdownFile] {
         let files = model.filesByWorkspace[workspace.id] ?? []
@@ -46,6 +47,9 @@ struct RepositoryView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItemGroup(placement: .topBarTrailing) {
+                    Button("Sync Changes", systemImage: "arrow.triangle.2.circlepath") {
+                        showingSync = true
+                    }
                     Button("New Markdown File", systemImage: "doc.badge.plus") {
                         showingNewFile = true
                     }
@@ -61,6 +65,9 @@ struct RepositoryView: View {
         .task(id: workspace.id) { await model.refresh(workspace) }
         .sheet(isPresented: $showingNewFile) {
             NewMarkdownFileView(workspace: workspace)
+        }
+        .sheet(isPresented: $showingSync) {
+            SyncChangesView(workspace: workspace, changeCount: changes.count)
         }
     }
 
@@ -117,7 +124,7 @@ struct RepositoryView: View {
                         }
                     }
                 } footer: {
-                    Text("Commit and synchronization controls are the next MVP increment. Your edits already live in a real Git working tree.")
+                    Text("Sync stages every change, creates a Git commit, and pushes the current branch to origin.")
                 }
             }
         }
@@ -126,7 +133,7 @@ struct RepositoryView: View {
                 ContentUnavailableView(
                     "Working tree clean",
                     systemImage: "checkmark.circle",
-                    description: Text("No local changes are waiting to be committed.")
+                    description: Text("No file changes are waiting. You can still sync to retry an unpublished commit.")
                 )
             }
         }
@@ -138,6 +145,99 @@ struct RepositoryView: View {
         case .modified, .renamed, .typeChanged: .orange
         case .deleted, .conflicted, .unreadable: .red
         case .unknown: .secondary
+        }
+    }
+}
+
+private struct SyncChangesView: View {
+    @EnvironmentObject private var model: AppModel
+    @Environment(\.dismiss) private var dismiss
+    @AppStorage("git.author.name") private var authorName = ""
+    @AppStorage("git.author.email") private var authorEmail = ""
+    let workspace: Workspace
+    let changeCount: Int
+    @State private var message = "Update notes"
+    @State private var isSyncing = false
+    @State private var syncResult: RepositorySyncResult?
+
+    private var canSync: Bool {
+        !message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            && !authorName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            && authorEmail.contains("@")
+            && !isSyncing
+    }
+
+    var body: some View {
+        NavigationStack {
+            if let syncResult {
+                ContentUnavailableView {
+                    Label("Synced with GitHub", systemImage: "checkmark.circle.fill")
+                } description: {
+                    if let commitID = syncResult.commitID {
+                        Text("Created and pushed commit \(String(commitID.prefix(8))).")
+                    } else {
+                        Text("Pushed the current branch to GitHub.")
+                    }
+                } actions: {
+                    Button("Done") { dismiss() }
+                        .buttonStyle(.borderedProminent)
+                }
+            } else {
+                Form {
+                    Section {
+                        TextField("Commit message", text: $message, axis: .vertical)
+                    } header: {
+                        Text("Commit")
+                    } footer: {
+                        if changeCount == 0 {
+                            Text("There are no file changes. Sync will retry pushing any unpublished local commit.")
+                        } else {
+                            Text("This stages all \(changeCount) change\(changeCount == 1 ? "" : "s"), creates one commit, and pushes the current branch to GitHub. It does not fetch or merge.")
+                        }
+                    }
+
+                    Section("Author") {
+                        TextField("Name", text: $authorName)
+                        TextField("Email", text: $authorEmail)
+                            .textInputAutocapitalization(.never)
+                            .keyboardType(.emailAddress)
+                            .autocorrectionDisabled()
+                    }
+                }
+                .navigationTitle("Sync Changes")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button("Cancel") { dismiss() }
+                    }
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button("Sync") { sync() }
+                            .disabled(!canSync)
+                    }
+                }
+            }
+        }
+        .onAppear {
+            if authorName.isEmpty, let login = model.githubUser?.login {
+                authorName = login
+            }
+            if authorEmail.isEmpty, let login = model.githubUser?.login {
+                authorEmail = "\(login)@users.noreply.github.com"
+            }
+        }
+        .interactiveDismissDisabled(isSyncing)
+    }
+
+    private func sync() {
+        isSyncing = true
+        Task {
+            syncResult = await model.sync(
+                workspace,
+                message: message,
+                authorName: authorName,
+                authorEmail: authorEmail
+            )
+            isSyncing = false
         }
     }
 }

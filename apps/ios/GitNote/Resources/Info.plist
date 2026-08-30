@@ -22,6 +22,8 @@
     <string>1</string>
     <key>ITSAppUsesNonExemptEncryption</key>
     <false/>
+    <key>GitHubOAuthClientID</key>
+    <string>$(GITHUB_OAUTH_CLIENT_ID)</string>
     <key>LSRequiresIPhoneOS</key>
     <true/>
     <key>LSSupportsOpeningDocumentsInPlace</key>
