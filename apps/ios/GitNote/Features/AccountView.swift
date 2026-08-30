@@ -1,9 +1,10 @@
 import SwiftUI
+import UIKit
 
 struct AccountView: View {
     @EnvironmentObject private var model: AppModel
     @Environment(\.dismiss) private var dismiss
-    @State private var token = ""
+    @Environment(\.openURL) private var openURL
 
     var body: some View {
         NavigationStack {
@@ -16,26 +17,42 @@ struct AccountView: View {
                         }
                         Button("Disconnect", role: .destructive) {
                             model.disconnect()
-                            token = ""
                         }
                     }
                 } else {
                     Section {
-                        SecureField("Fine-grained personal access token", text: $token)
-                            .textInputAutocapitalization(.never)
-                            .autocorrectionDisabled()
-                        Button("Connect") {
-                            Task {
-                                if await model.connect(token: token) {
-                                    token = ""
-                                }
+                        if let authorization = model.githubDeviceAuthorization {
+                            Text("Copy this code, then paste it into GitHub on the next screen.")
+                                .foregroundStyle(.secondary)
+                            LabeledContent("One-time code") {
+                                Text(authorization.userCode)
+                                    .font(.system(.title3, design: .monospaced, weight: .semibold))
+                                    .textSelection(.enabled)
+                            }
+                            Button("Copy Code and Open GitHub", systemImage: "doc.on.doc") {
+                                UIPasteboard.general.string = authorization.userCode
+                                openURL(authorization.verificationURI)
+                            }
+                            ProgressView("Waiting for GitHub authorization…")
+                            Button("Cancel", role: .cancel) {
+                                model.cancelGitHubSignIn()
+                            }
+                        } else if model.isGitHubSignInInProgress {
+                            ProgressView("Starting GitHub login…")
+                            Button("Cancel", role: .cancel) {
+                                model.cancelGitHubSignIn()
+                            }
+                        } else {
+                            Button {
+                                model.startGitHubSignIn()
+                            } label: {
+                                Label("Sign in with GitHub", systemImage: "person.crop.circle.badge.checkmark")
                             }
                         }
-                        .disabled(token.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                     } header: {
                         Text("GitHub")
                     } footer: {
-                        Text("For this MVP, use a fine-grained token with read-only metadata access. GitNote stores it in Keychain and does not put it in Git URLs.")
+                        Text("GitNote requests access to public repositories so it can browse and sync them. GitHub opens in your browser; the resulting token is stored in Keychain.")
                     }
                 }
 
@@ -48,8 +65,10 @@ struct AccountView: View {
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Done") { dismiss() }
+                        .disabled(model.isGitHubSignInInProgress)
                 }
             }
         }
+        .interactiveDismissDisabled(model.isGitHubSignInInProgress)
     }
 }

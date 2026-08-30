@@ -7,7 +7,7 @@ GitNote uses a product monorepo rather than a shared-runtime monolith. Each clie
 - `apps/ios`: SwiftUI, Keychain, Files integration, and libgit2.
 - `apps/android`: future Kotlin/Compose client and native Git adapter.
 - `apps/web`: future browser experience; it cannot assume direct access to local Git working copies.
-- `services/api`: optional OAuth exchange, webhooks, notification relay, or account services. Repository contents should continue to travel directly between a client and GitHub whenever possible.
+- `services/api`: optional future webhooks, notification relay, or account services. OAuth device flow and repository contents travel directly between the client and GitHub.
 - `packages/contracts`: OpenAPI and other platform-neutral schemas. Generated clients may be produced within each platform folder.
 
 ## iOS layers
@@ -36,7 +36,8 @@ The MVP pins SwiftGitX 0.4.x, which wraps libgit2 and supports Apple platforms t
 
 ## Security boundaries
 
-- GitHub tokens live only in Keychain.
+- GitHub OAuth tokens live only in Keychain.
+- Push tokens are passed to libgit2 through an in-memory credential callback and are never persisted in Git configuration.
 - HTTP uses GitHub's HTTPS API and standard URLSession trust handling.
 - Clone URLs are validated HTTPS URLs and do not contain credentials.
 - File enumeration skips hidden files and never presents `.git` internals for editing.

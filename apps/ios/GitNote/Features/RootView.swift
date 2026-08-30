@@ -12,7 +12,10 @@ struct RootView: View {
             List(selection: $model.selectedWorkspaceID) {
                 Section("Working copies") {
                     ForEach(model.workspaces) { workspace in
-                        WorkspaceRow(workspace: workspace)
+                        WorkspaceRow(
+                            workspace: workspace,
+                            changeCount: model.changesByWorkspace[workspace.id]?.count
+                        )
                             .tag(workspace.id)
                             .contextMenu {
                                 Button("Remove local copy", role: .destructive) {
@@ -57,8 +60,8 @@ struct RootView: View {
         }
         .task { await model.bootstrap() }
         .onChange(of: scenePhase) { _, phase in
-            guard phase == .active, let workspace = model.selectedWorkspace else { return }
-            Task { await model.refresh(workspace) }
+            guard phase == .active else { return }
+            Task { await model.refreshAllWorkspaces() }
         }
         .sheet(isPresented: $showingAddRepository) {
             AddRepositoryView()
@@ -113,19 +116,34 @@ struct RootView: View {
 
 private struct WorkspaceRow: View {
     let workspace: Workspace
+    let changeCount: Int?
 
     var body: some View {
-        Label {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(workspace.displayName)
-                    .font(.headline)
-                Text(workspace.ownerName)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-        } icon: {
+        HStack(spacing: 12) {
             Image(systemName: "book.closed")
                 .foregroundStyle(.indigo)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(workspace.displayName).font(.headline)
+                Text(workspace.ownerName).font(.caption).foregroundStyle(.secondary)
+            }
+            Spacer()
+            if let changeCount, changeCount > 0 {
+                Text("\(changeCount)")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 3)
+                    .background(.orange, in: Capsule())
+                    .accessibilityLabel("\(changeCount) uncommitted changes")
+            }
         }
+        .accessibilityValue(dirtyDescription)
+    }
+
+    private var dirtyDescription: String {
+        guard let changeCount else { return "Checking for changes" }
+        return changeCount == 0
+            ? "Working copy clean"
+            : "Working copy has \(changeCount) uncommitted change\(changeCount == 1 ? "" : "s")"
     }
 }

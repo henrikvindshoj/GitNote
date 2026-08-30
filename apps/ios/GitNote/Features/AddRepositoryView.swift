@@ -74,9 +74,9 @@ struct AddRepositoryView: View {
     private var accountRepositories: some View {
         if !model.hasStoredToken {
             ContentUnavailableView {
-                Label("Connect GitHub", systemImage: "person.crop.circle.badge.questionmark")
+                Label("Sign in with GitHub", systemImage: "person.crop.circle.badge.questionmark")
             } description: {
-                Text("Add a token in Account settings to browse repositories.")
+                Text("Sign in from Account settings to browse your repositories.")
             }
         } else {
             List(filteredRepositories) { repository in

@@ -25,26 +25,29 @@ Requirements: Xcode 26 or newer and iOS 17 or newer.
 1. Open `apps/ios/GitNote.xcodeproj`.
 2. Select the `GitNote` scheme and an iPhone or iPad simulator.
 3. Build and run.
-4. Add a public repository directly as `owner/repository`, or save a fine-grained GitHub personal access token to browse repositories available to your account.
+4. Configure the GitHub OAuth client ID as described in [docs/GITHUB_OAUTH.md](docs/GITHUB_OAUTH.md).
+5. Open Account, choose **Sign in with GitHub**, and authorize GitNote as your GitHub user.
+6. Add a public repository directly as `owner/repository`, or browse repositories available to your account.
 
-Tokens are stored in Keychain. The MVP never writes a token into a clone URL or Git configuration.
+OAuth tokens are stored in Keychain. The MVP never writes a token into a clone URL or Git configuration.
 
 ## Current MVP boundary
 
 Implemented:
 
 - Multiple local working copies.
-- GitHub token validation and repository discovery.
+- GitHub OAuth device login, account validation, and repository discovery.
 - Real `libgit2` clones for public HTTPS repositories.
 - Markdown file creation, browsing, source editing, and preview.
 - Git working-tree status.
+- Dirty working-copy badges and optimistic stage-all, commit, and authenticated push sync.
 - Files app visibility via document sharing.
 - Offline access to cloned notes.
 
 Not yet implemented:
 
 - Authenticated clone/push for private repositories.
-- Commit, pull, push, branches, and merge conflict resolution.
+- Pull, branch management, and merge conflict resolution.
 - Guaranteed direct vault adoption by Obsidian on every Apple platform.
 - Android, Web, or backend runtime code.
 
@@ -52,4 +55,4 @@ See [docs/MVP.md](docs/MVP.md) for acceptance criteria and [PLAN.md](PLAN.md) fo
 
 ## Security note
 
-Use a fine-grained token with read-only repository metadata access for the MVP. Do not grant write access until authenticated Git operations are implemented and reviewed.
+GitNote requests the OAuth `public_repo` scope for the current public-repository MVP. Access tokens remain in Keychain and are supplied to libgit2 only through an in-memory credential callback.
