@@ -21,6 +21,7 @@
 		B0000000000000000000000C /* MarkdownEditorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0000000000000000000000C /* MarkdownEditorView.swift */; };
 		B0000000000000000000000D /* RepositoryAddressTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0000000000000000000000E /* RepositoryAddressTests.swift */; };
 		B0000000000000000000000E /* SwiftGitX in Frameworks */ = {isa = PBXBuildFile; productRef = R00000000000000000000002 /* SwiftGitX */; };
+		B0000000000000000000000F /* MarkdownRichDocument.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0000000000000000000000F /* MarkdownRichDocument.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -48,6 +49,7 @@
 		A0000000000000000000000C /* MarkdownEditorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarkdownEditorView.swift; sourceTree = "<group>"; };
 		A0000000000000000000000D /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		A0000000000000000000000E /* RepositoryAddressTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RepositoryAddressTests.swift; sourceTree = "<group>"; };
+		A0000000000000000000000F /* MarkdownRichDocument.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarkdownRichDocument.swift; sourceTree = "<group>"; };
 		P00000000000000000000001 /* GitNote.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = GitNote.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		P00000000000000000000002 /* GitNoteTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = GitNoteTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -126,6 +128,7 @@
 				A0000000000000000000000A /* AccountView.swift */,
 				A00000000000000000000009 /* AddRepositoryView.swift */,
 				A0000000000000000000000C /* MarkdownEditorView.swift */,
+				A0000000000000000000000F /* MarkdownRichDocument.swift */,
 				A0000000000000000000000B /* RepositoryView.swift */,
 				A00000000000000000000008 /* RootView.swift */,
 			);
@@ -251,6 +254,7 @@
 				B0000000000000000000000A /* AccountView.swift in Sources */,
 				B00000000000000000000009 /* AddRepositoryView.swift in Sources */,
 				B0000000000000000000000C /* MarkdownEditorView.swift in Sources */,
+				B0000000000000000000000F /* MarkdownRichDocument.swift in Sources */,
 				B0000000000000000000000B /* RepositoryView.swift in Sources */,
 				B00000000000000000000008 /* RootView.swift in Sources */,
 			);

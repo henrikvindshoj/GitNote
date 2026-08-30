@@ -38,7 +38,7 @@ Implemented:
 - Multiple local working copies.
 - GitHub OAuth device login, account validation, and repository discovery.
 - Real `libgit2` clones for public HTTPS repositories.
-- Markdown file creation, browsing, source editing, and preview.
+- Markdown file creation and Word-like editing with hidden syntax, a persistent formatting toolbox, and secondary raw-source inspection.
 - Git working-tree status.
 - Dirty working-copy badges and optimistic stage-all, commit, and authenticated push sync.
 - Files app visibility via document sharing.
