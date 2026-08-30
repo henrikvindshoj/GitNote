@@ -1,58 +1,36 @@
 # GitNote
 
-GitNote is a local-first client for Markdown repositories hosted on GitHub. The MVP is a native iPhone and iPad app that can discover multiple GitHub repositories, create real local Git working copies, browse and edit Markdown, show working-tree changes, and expose its Documents directory through the Files app.
+**Your Markdown notes, backed by GitHub.**
 
-## Repository layout
+GitNote is a local-first notes app for people who keep Markdown files in GitHub repositories. It gives you a friendly writing experience on iPhone and iPad while keeping your notes as ordinary `.md` files that you own and can use with other tools.
 
-```text
-apps/
-  ios/                 Native SwiftUI MVP
-  android/             Reserved Android application boundary
-  web/                 Reserved web application boundary
-services/
-  api/                 Optional future backend services
-packages/
-  contracts/           Platform-neutral API contracts
-docs/                  Product and architecture documentation
-```
+## What GitNote can do for you
 
-The platform folders are intentionally independent. UI and local Git behavior stay native, while shared network contracts live under `packages/` so Android, Web, and backend implementations can evolve alongside iOS without coupling their build systems.
+- **Keep different collections together.** Connect multiple GitHub repositories and manage each one as a separate working copy.
+- **Write without Markdown getting in the way.** Edit notes in a Word-like view with formatting tools for headings, bold, italic, lists, quotes, links, code, and more.
+- **Work offline.** Read and edit cloned notes without a network connection.
+- **Stay in control of your files.** Your notes remain regular Markdown files inside real local Git repositories—not records locked inside a proprietary database.
+- **See what changed.** GitNote shows when a working copy has uncommitted changes and lets you inspect the changed files.
+- **Send updates to GitHub.** Sync stages your changes, creates a commit, and pushes it to the connected repository.
+- **Use other editors too.** Working copies are exposed through Apple's Files app so compatible Markdown editors can access the same files.
+- **Inspect the source when needed.** Raw Markdown is still available as a secondary view, while the formatted editor remains the default.
 
-## Run the iOS MVP
+## A simple workflow
 
-Requirements: Xcode 26 or newer and iOS 17 or newer.
+1. Sign in with your GitHub account.
+2. Choose a public Markdown repository, or enter its `owner/repository` address.
+3. Clone it to your device.
+4. Browse, create, and edit notes—even while offline.
+5. Review the working copy's changes and sync them back to GitHub.
 
-1. Open `apps/ios/GitNote.xcodeproj`.
-2. Select the `GitNote` scheme and an iPhone or iPad simulator.
-3. Build and run.
-4. Configure the GitHub OAuth client ID as described in [docs/GITHUB_OAUTH.md](docs/GITHUB_OAUTH.md).
-5. Open Account, choose **Sign in with GitHub**, and authorize GitNote as your GitHub user.
-6. Add a public repository directly as `owner/repository`, or browse repositories available to your account.
+Because GitNote works with standard Git repositories and Markdown files, your notes can also be cloned on a computer and opened in Obsidian, VS Code, or another Markdown-compatible app.
 
-OAuth tokens are stored in Keychain. The MVP never writes a token into a clone URL or Git configuration.
+## Who GitNote is for
 
-## Current MVP boundary
+GitNote is designed for writers, developers, researchers, and knowledge workers who like Markdown and want the ownership and history of Git without doing everyday note-taking from a terminal.
 
-Implemented:
+## Current availability
 
-- Multiple local working copies.
-- GitHub OAuth device login, account validation, and repository discovery.
-- Real `libgit2` clones for public HTTPS repositories.
-- Markdown file creation and Word-like editing with hidden syntax, a persistent formatting toolbox, and secondary raw-source inspection.
-- Git working-tree status.
-- Dirty working-copy badges and optimistic stage-all, commit, and authenticated push sync.
-- Files app visibility via document sharing.
-- Offline access to cloned notes.
+GitNote is currently an early iPhone and iPad MVP. It supports public GitHub repositories. Private repository cloning, pulling remote changes, branch management, and merge-conflict resolution are planned but not yet available. Sync currently takes an optimistic commit-and-push approach.
 
-Not yet implemented:
-
-- Authenticated clone/push for private repositories.
-- Pull, branch management, and merge conflict resolution.
-- Guaranteed direct vault adoption by Obsidian on every Apple platform.
-- Android, Web, or backend runtime code.
-
-See [docs/MVP.md](docs/MVP.md) for acceptance criteria and [PLAN.md](PLAN.md) for the longer roadmap.
-
-## Security note
-
-GitNote requests the OAuth `public_repo` scope for the current public-repository MVP. Access tokens remain in Keychain and are supplied to libgit2 only through an in-memory credential callback.
+For build instructions and technical details, see the [development guide](docs/DEVELOPMENT.md). The [project plan](PLAN.md) describes the longer-term direction.
