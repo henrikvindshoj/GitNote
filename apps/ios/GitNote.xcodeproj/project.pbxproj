@@ -1,0 +1,424 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 56;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		B00000000000000000000001 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000001 /* Models.swift */; };
+		B00000000000000000000002 /* KeychainStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000002 /* KeychainStore.swift */; };
+		B00000000000000000000003 /* GitHubClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000003 /* GitHubClient.swift */; };
+		B00000000000000000000004 /* WorkspaceStorage.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000004 /* WorkspaceStorage.swift */; };
+		B00000000000000000000005 /* GitEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000005 /* GitEngine.swift */; };
+		B00000000000000000000006 /* AppModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000006 /* AppModel.swift */; };
+		B00000000000000000000007 /* GitNoteApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000007 /* GitNoteApp.swift */; };
+		B00000000000000000000008 /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000008 /* RootView.swift */; };
+		B00000000000000000000009 /* AddRepositoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000009 /* AddRepositoryView.swift */; };
+		B0000000000000000000000A /* AccountView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0000000000000000000000A /* AccountView.swift */; };
+		B0000000000000000000000B /* RepositoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0000000000000000000000B /* RepositoryView.swift */; };
+		B0000000000000000000000C /* MarkdownEditorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0000000000000000000000C /* MarkdownEditorView.swift */; };
+		B0000000000000000000000D /* RepositoryAddressTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0000000000000000000000E /* RepositoryAddressTests.swift */; };
+		B0000000000000000000000E /* SwiftGitX in Frameworks */ = {isa = PBXBuildFile; productRef = R00000000000000000000002 /* SwiftGitX */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		D00000000000000000000001 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = F00000000000000000000001 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = T00000000000000000000001;
+			remoteInfo = GitNote;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		A00000000000000000000001 /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
+		A00000000000000000000002 /* KeychainStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainStore.swift; sourceTree = "<group>"; };
+		A00000000000000000000003 /* GitHubClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GitHubClient.swift; sourceTree = "<group>"; };
+		A00000000000000000000004 /* WorkspaceStorage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceStorage.swift; sourceTree = "<group>"; };
+		A00000000000000000000005 /* GitEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GitEngine.swift; sourceTree = "<group>"; };
+		A00000000000000000000006 /* AppModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppModel.swift; sourceTree = "<group>"; };
+		A00000000000000000000007 /* GitNoteApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GitNoteApp.swift; sourceTree = "<group>"; };
+		A00000000000000000000008 /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
+		A00000000000000000000009 /* AddRepositoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddRepositoryView.swift; sourceTree = "<group>"; };
+		A0000000000000000000000A /* AccountView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountView.swift; sourceTree = "<group>"; };
+		A0000000000000000000000B /* RepositoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RepositoryView.swift; sourceTree = "<group>"; };
+		A0000000000000000000000C /* MarkdownEditorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarkdownEditorView.swift; sourceTree = "<group>"; };
+		A0000000000000000000000D /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		A0000000000000000000000E /* RepositoryAddressTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RepositoryAddressTests.swift; sourceTree = "<group>"; };
+		P00000000000000000000001 /* GitNote.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = GitNote.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		P00000000000000000000002 /* GitNoteTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = GitNoteTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		S00000000000000000000002 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				B0000000000000000000000E /* SwiftGitX in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		S00000000000000000000005 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		G00000000000000000000001 = {
+			isa = PBXGroup;
+			children = (
+				G00000000000000000000002 /* GitNote */,
+				G00000000000000000000008 /* GitNoteTests */,
+				G00000000000000000000009 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		G00000000000000000000002 /* GitNote */ = {
+			isa = PBXGroup;
+			children = (
+				G00000000000000000000003 /* Application */,
+				G00000000000000000000004 /* Domain */,
+				G00000000000000000000005 /* Infrastructure */,
+				G00000000000000000000006 /* Features */,
+				G00000000000000000000007 /* Resources */,
+			);
+			path = GitNote;
+			sourceTree = "<group>";
+		};
+		G00000000000000000000003 /* Application */ = {
+			isa = PBXGroup;
+			children = (
+				A00000000000000000000006 /* AppModel.swift */,
+				A00000000000000000000007 /* GitNoteApp.swift */,
+			);
+			path = Application;
+			sourceTree = "<group>";
+		};
+		G00000000000000000000004 /* Domain */ = {
+			isa = PBXGroup;
+			children = (
+				A00000000000000000000001 /* Models.swift */,
+			);
+			path = Domain;
+			sourceTree = "<group>";
+		};
+		G00000000000000000000005 /* Infrastructure */ = {
+			isa = PBXGroup;
+			children = (
+				A00000000000000000000005 /* GitEngine.swift */,
+				A00000000000000000000003 /* GitHubClient.swift */,
+				A00000000000000000000002 /* KeychainStore.swift */,
+				A00000000000000000000004 /* WorkspaceStorage.swift */,
+			);
+			path = Infrastructure;
+			sourceTree = "<group>";
+		};
+		G00000000000000000000006 /* Features */ = {
+			isa = PBXGroup;
+			children = (
+				A0000000000000000000000A /* AccountView.swift */,
+				A00000000000000000000009 /* AddRepositoryView.swift */,
+				A0000000000000000000000C /* MarkdownEditorView.swift */,
+				A0000000000000000000000B /* RepositoryView.swift */,
+				A00000000000000000000008 /* RootView.swift */,
+			);
+			path = Features;
+			sourceTree = "<group>";
+		};
+		G00000000000000000000007 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				A0000000000000000000000D /* Info.plist */,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
+		G00000000000000000000008 /* GitNoteTests */ = {
+			isa = PBXGroup;
+			children = (
+				A0000000000000000000000E /* RepositoryAddressTests.swift */,
+			);
+			path = GitNoteTests;
+			sourceTree = "<group>";
+		};
+		G00000000000000000000009 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				P00000000000000000000001 /* GitNote.app */,
+				P00000000000000000000002 /* GitNoteTests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		T00000000000000000000001 /* GitNote */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = L00000000000000000000002 /* Build configuration list for PBXNativeTarget "GitNote" */;
+			buildPhases = (
+				S00000000000000000000001 /* Sources */,
+				S00000000000000000000002 /* Frameworks */,
+				S00000000000000000000003 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = GitNote;
+			packageProductDependencies = (
+				R00000000000000000000002 /* SwiftGitX */,
+			);
+			productName = GitNote;
+			productReference = P00000000000000000000001 /* GitNote.app */;
+			productType = "com.apple.product-type.application";
+		};
+		T00000000000000000000002 /* GitNoteTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = L00000000000000000000003 /* Build configuration list for PBXNativeTarget "GitNoteTests" */;
+			buildPhases = (
+				S00000000000000000000004 /* Sources */,
+				S00000000000000000000005 /* Frameworks */,
+				S00000000000000000000006 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				D00000000000000000000002 /* PBXTargetDependency */,
+			);
+			name = GitNoteTests;
+			productName = GitNoteTests;
+			productReference = P00000000000000000000002 /* GitNoteTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		F00000000000000000000001 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 2660;
+				LastUpgradeCheck = 2660;
+				TargetAttributes = {
+					T00000000000000000000001 = { CreatedOnToolsVersion = 26.6; };
+					T00000000000000000000002 = { CreatedOnToolsVersion = 26.6; TestTargetID = T00000000000000000000001; };
+				};
+			};
+			buildConfigurationList = L00000000000000000000001 /* Build configuration list for PBXProject "GitNote" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (en, Base);
+			mainGroup = G00000000000000000000001;
+			packageReferences = (
+				R00000000000000000000001 /* XCRemoteSwiftPackageReference "SwiftGitX" */,
+			);
+			productRefGroup = G00000000000000000000009 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				T00000000000000000000001 /* GitNote */,
+				T00000000000000000000002 /* GitNoteTests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		S00000000000000000000003 /* Resources */ = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+		S00000000000000000000006 /* Resources */ = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		S00000000000000000000001 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				B00000000000000000000006 /* AppModel.swift in Sources */,
+				B00000000000000000000007 /* GitNoteApp.swift in Sources */,
+				B00000000000000000000001 /* Models.swift in Sources */,
+				B00000000000000000000005 /* GitEngine.swift in Sources */,
+				B00000000000000000000003 /* GitHubClient.swift in Sources */,
+				B00000000000000000000002 /* KeychainStore.swift in Sources */,
+				B00000000000000000000004 /* WorkspaceStorage.swift in Sources */,
+				B0000000000000000000000A /* AccountView.swift in Sources */,
+				B00000000000000000000009 /* AddRepositoryView.swift in Sources */,
+				B0000000000000000000000C /* MarkdownEditorView.swift in Sources */,
+				B0000000000000000000000B /* RepositoryView.swift in Sources */,
+				B00000000000000000000008 /* RootView.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		S00000000000000000000004 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				B0000000000000000000000D /* RepositoryAddressTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		D00000000000000000000002 /* PBXTargetDependency */ = {isa = PBXTargetDependency; target = T00000000000000000000001 /* GitNote */; targetProxy = D00000000000000000000001 /* PBXContainerItemProxy */; };
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		C00000000000000000000001 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 6.0;
+			};
+			name = Debug;
+		};
+		C00000000000000000000002 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_NO_COMMON_BLOCKS = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 6.0;
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		C00000000000000000000003 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_ASSET_PATHS = "";
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = GitNote/Resources/Info.plist;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.henrikvindshoj.GitNote;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		C00000000000000000000004 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = GitNote/Resources/Info.plist;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.henrikvindshoj.GitNote;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		C00000000000000000000005 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.henrikvindshoj.GitNoteTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/GitNote.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/GitNote";
+			};
+			name = Debug;
+		};
+		C00000000000000000000006 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.henrikvindshoj.GitNoteTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/GitNote.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/GitNote";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		L00000000000000000000001 /* Build configuration list for PBXProject "GitNote" */ = {isa = XCConfigurationList; buildConfigurations = (C00000000000000000000001 /* Debug */, C00000000000000000000002 /* Release */); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
+		L00000000000000000000002 /* Build configuration list for PBXNativeTarget "GitNote" */ = {isa = XCConfigurationList; buildConfigurations = (C00000000000000000000003 /* Debug */, C00000000000000000000004 /* Release */); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
+		L00000000000000000000003 /* Build configuration list for PBXNativeTarget "GitNoteTests" */ = {isa = XCConfigurationList; buildConfigurations = (C00000000000000000000005 /* Debug */, C00000000000000000000006 /* Release */); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
+/* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		R00000000000000000000001 /* XCRemoteSwiftPackageReference "SwiftGitX" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/ibrahimcetin/SwiftGitX.git";
+			requirement = { kind = upToNextMinorVersion; minimumVersion = 0.4.0; };
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		R00000000000000000000002 /* SwiftGitX */ = {isa = XCSwiftPackageProductDependency; package = R00000000000000000000001 /* XCRemoteSwiftPackageReference "SwiftGitX" */; productName = SwiftGitX; };
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = F00000000000000000000001 /* Project object */;
+}

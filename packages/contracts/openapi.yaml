@@ -1,0 +1,6 @@
+openapi: 3.1.0
+info:
+  title: GitNote Service API
+  version: 0.0.0
+  description: Reserved contract for optional GitNote backend capabilities. The local-first MVP has no server endpoints.
+paths: {}
