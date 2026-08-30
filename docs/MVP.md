@@ -17,7 +17,7 @@ Prove the smallest useful GitNote loop on a physical iPhone or iPad:
 - [x] A user can authorize GitNote through GitHub's OAuth device flow, with credentials stored in Keychain.
 - [x] `.md` and `.markdown` files are discoverable without exposing `.git` internals.
 - [x] New Markdown files and optional parent folders can be created safely inside a working copy.
-- [x] Markdown source can be edited and rendered.
+- [x] Markdown opens in a directly editable, syntax-hiding surface with common formatting tools and secondary raw-source inspection.
 - [x] Working-tree changes are listed after an edit or foreground refresh.
 - [x] Dirty working copies are visible in the repository list.
 - [x] Sync stages all changes, creates a local Git commit, and pushes the current branch without first reconciling remote changes.
