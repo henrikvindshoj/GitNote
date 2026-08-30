@@ -19,7 +19,7 @@ GitNote uses GitHub's OAuth device flow. The app opens GitHub in the browser, di
 4. Set it to the copied client ID for both Debug and Release.
 5. Build and run, open **Account**, and choose **Sign in with GitHub**.
 
-The current MVP requests `public_repo`, which permits GitNote to browse and push public repositories. Private-repository access remains outside the current boundary.
+GitNote requests `repo`, which permits it to browse, clone, and push public and authorized private repositories. Access tokens are stored in Keychain and passed to libgit2 through in-memory credential callbacks; they are never written into clone URLs or Git configuration. Users upgrading from a build that requested only `public_repo` must disconnect and sign in again once to grant the expanded scope.
 
 ## Simulator signing
 

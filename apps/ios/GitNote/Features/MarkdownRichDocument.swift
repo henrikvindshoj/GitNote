@@ -654,6 +654,7 @@ enum MarkdownRichCodec {
     }
 }
 
+@MainActor
 enum MarkdownRichCommandApplier {
     static func apply(_ command: MarkdownEditorCommand, to textView: UITextView) {
         apply(command.action, destination: command.destination, to: textView)

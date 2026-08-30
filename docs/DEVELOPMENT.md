@@ -27,7 +27,7 @@ Requirements: Xcode 26 or newer and iOS 17 or newer.
 3. Build and run.
 4. Configure the GitHub OAuth client ID as described in the [GitHub OAuth setup guide](GITHUB_OAUTH.md).
 5. Open Account, choose **Sign in with GitHub**, and authorize GitNote as your GitHub user.
-6. Add a public repository directly as `owner/repository`, or browse repositories available to your account.
+6. Add a public or private repository directly as `owner/repository`, or browse repositories available to your account.
 
 OAuth tokens are stored in Keychain. The MVP never writes a token into a clone URL or Git configuration.
 
@@ -37,7 +37,7 @@ Implemented:
 
 - Multiple local working copies.
 - GitHub OAuth device login, account validation, and repository discovery.
-- Real `libgit2` clones for public HTTPS repositories.
+- Authenticated `libgit2` clones for public and authorized private HTTPS repositories.
 - Markdown file creation and Word-like editing with hidden syntax, a persistent formatting toolbox, and secondary raw-source inspection.
 - Git working-tree status.
 - Dirty working-copy badges and optimistic stage-all, commit, and authenticated push sync.
@@ -46,7 +46,6 @@ Implemented:
 
 Not yet implemented:
 
-- Authenticated clone/push for private repositories.
 - Pull, branch management, and merge conflict resolution.
 - Guaranteed direct vault adoption by Obsidian on every Apple platform.
 - Android, Web, or backend runtime code.
@@ -55,4 +54,4 @@ See the [MVP acceptance criteria](MVP.md) and the [longer-term project plan](../
 
 ## Security note
 
-GitNote requests the OAuth `public_repo` scope for the current public-repository MVP. Access tokens remain in Keychain and are supplied to libgit2 only through an in-memory credential callback.
+GitNote requests the OAuth `repo` scope so it can access public and authorized private repositories. Access tokens remain in Keychain and are supplied to libgit2 only through an in-memory credential callback. Users who signed in with an older build must disconnect and sign in again to grant the expanded scope.

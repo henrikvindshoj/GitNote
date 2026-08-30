@@ -4,11 +4,18 @@ import Security
 struct KeychainStore: Sendable {
     enum KeychainError: LocalizedError {
         case unexpectedStatus(OSStatus)
+        case tokenNotPersisted
 
         var errorDescription: String? {
             switch self {
             case .unexpectedStatus(let status):
-                "Keychain returned status \(status)."
+                if status == -34_018 {
+                    "GitNote cannot access Keychain because this build is not code-signed. Run a normally signed build from Xcode."
+                } else {
+                    "Keychain returned status \(status)."
+                }
+            case .tokenNotPersisted:
+                "GitHub authorized GitNote, but the token could not be read back from Keychain."
             }
         }
     }

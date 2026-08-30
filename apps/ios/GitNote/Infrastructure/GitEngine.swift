@@ -42,11 +42,37 @@ actor GitEngine {
         }
     }
 
-    func clone(from remoteURL: URL, to localURL: URL) async throws {
+    func clone(from remoteURL: URL, to localURL: URL, token: String? = nil) async throws {
         guard !FileManager.default.fileExists(atPath: localURL.path) else {
             throw EngineError.destinationExists
         }
-        _ = try await Repository.clone(from: remoteURL, to: localURL)
+
+        try SwiftGitXRuntime.initialize()
+        defer { _ = try? SwiftGitXRuntime.shutdown() }
+
+        var options = git_clone_options()
+        try check(
+            git_clone_options_init(&options, UInt32(GIT_CLONE_OPTIONS_VERSION)),
+            operation: "prepare the clone"
+        )
+
+        let tokenPayload = token.map { Unmanaged.passRetained(GitHubCredentialPayload(token: $0)) }
+        defer { tokenPayload?.release() }
+        if let tokenPayload {
+            options.fetch_opts.callbacks.payload = tokenPayload.toOpaque()
+            options.fetch_opts.callbacks.credentials = Self.githubCredentials
+        }
+
+        var repositoryPointer: OpaquePointer?
+        let result = remoteURL.absoluteString.withCString { rawRemoteURL in
+            localURL.path.withCString { rawLocalPath in
+                git_clone(&repositoryPointer, rawRemoteURL, rawLocalPath, &options)
+            }
+        }
+        if let repositoryPointer {
+            git_repository_free(repositoryPointer)
+        }
+        try check(result, operation: "clone the repository")
     }
 
     func changes(at localURL: URL) throws -> [RepositoryChange] {
@@ -222,24 +248,7 @@ actor GitEngine {
         let tokenPayload = Unmanaged.passRetained(GitHubCredentialPayload(token: token))
         defer { tokenPayload.release() }
         options.callbacks.payload = tokenPayload.toOpaque()
-        options.callbacks.credentials = { credential, _, _, allowedTypes, payload in
-            guard let payload,
-                  allowedTypes & GIT_CREDENTIAL_USERPASS_PLAINTEXT.rawValue != 0 else {
-                return GIT_PASSTHROUGH.rawValue
-            }
-
-            let credentialPayload = Unmanaged<GitHubCredentialPayload>
-                .fromOpaque(payload)
-                .takeUnretainedValue()
-            guard let token = credentialPayload.takeToken() else {
-                return GIT_EAUTH.rawValue
-            }
-            return token.withCString { rawToken in
-                "x-access-token".withCString { username in
-                    git_credential_userpass_plaintext_new(credential, username, rawToken)
-                }
-            }
-        }
+        options.callbacks.credentials = Self.githubCredentials
 
         guard let branchCString = strdup(branchName) else {
             throw EngineError.gitOperation(operation: "prepare the push", message: "Could not allocate the branch refspec")
@@ -265,6 +274,26 @@ actor GitEngine {
                 message = "libgit2 error \(result)"
             }
             throw EngineError.gitOperation(operation: operation, message: message)
+        }
+    }
+
+    private static let githubCredentials: git_credential_acquire_cb = {
+        credential, _, _, allowedTypes, payload in
+        guard let payload,
+              allowedTypes & GIT_CREDENTIAL_USERPASS_PLAINTEXT.rawValue != 0 else {
+            return GIT_PASSTHROUGH.rawValue
+        }
+
+        let credentialPayload = Unmanaged<GitHubCredentialPayload>
+            .fromOpaque(payload)
+            .takeUnretainedValue()
+        guard let token = credentialPayload.takeToken() else {
+            return GIT_EAUTH.rawValue
+        }
+        return token.withCString { rawToken in
+            "x-access-token".withCString { username in
+                git_credential_userpass_plaintext_new(credential, username, rawToken)
+            }
         }
     }
 

@@ -263,6 +263,7 @@ final class GitHubOAuthClientTests: XCTestCase {
         let configuration = URLSessionConfiguration.ephemeral
         configuration.protocolClasses = [OAuthURLProtocol.self]
         let client = GitHubOAuthClient(session: URLSession(configuration: configuration))
+        XCTAssertEqual(GitHubOAuthClient.requestedScope, "repo")
 
         OAuthURLProtocol.response = { request in
             let data: Data
@@ -270,7 +271,7 @@ final class GitHubOAuthClientTests: XCTestCase {
             case "/login/device/code":
                 data = Data(#"{"device_code":"device-123","user_code":"ABCD-EFGH","verification_uri":"https://github.com/login/device","expires_in":30,"interval":1}"#.utf8)
             case "/login/oauth/access_token":
-                data = Data(#"{"access_token":"oauth-token","token_type":"bearer","scope":"public_repo"}"#.utf8)
+                data = Data(#"{"access_token":"oauth-token","token_type":"bearer","scope":"repo"}"#.utf8)
             default:
                 throw URLError(.unsupportedURL)
             }
@@ -297,6 +298,35 @@ final class GitHubOAuthClientTests: XCTestCase {
 
 @MainActor
 final class GitEngineTests: XCTestCase {
+    func testCloneCreatesWorkingCopyWithCredentialCapablePath() async throws {
+        let root = FileManager.default.temporaryDirectory
+            .appending(path: "GitNoteCloneTests-\(UUID().uuidString)", directoryHint: .isDirectory)
+        let source = root.appending(path: "source", directoryHint: .isDirectory)
+        let clone = root.appending(path: "clone", directoryHint: .isDirectory)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let engine = GitEngine()
+        try await engine.initializeRepository(at: source)
+        try "# Private note\n".write(
+            to: source.appending(path: "Private.md"),
+            atomically: true,
+            encoding: .utf8
+        )
+        _ = try await engine.commitAll(
+            at: source,
+            message: "Create private note",
+            authorName: "GitNote Tests",
+            authorEmail: "gitnote-tests@example.com"
+        )
+
+        try await engine.clone(from: source, to: clone, token: "credential-is-not-needed-locally")
+
+        XCTAssertTrue(FileManager.default.fileExists(atPath: clone.appending(path: "Private.md").path))
+        let clonedChanges = try await engine.changes(at: clone)
+        XCTAssertTrue(clonedChanges.isEmpty)
+    }
+
     func testSyncAllPushesCommitToOrigin() async throws {
         let root = FileManager.default.temporaryDirectory
             .appending(path: "GitNotePushTests-\(UUID().uuidString)", directoryHint: .isDirectory)

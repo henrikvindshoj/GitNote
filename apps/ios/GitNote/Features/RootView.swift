@@ -31,7 +31,7 @@ struct RootView: View {
                     ContentUnavailableView {
                         Label("No repositories", systemImage: "folder.badge.plus")
                     } description: {
-                        Text("Clone a public Markdown repository to get started.")
+                        Text("Clone a public or private Markdown repository to get started.")
                     } actions: {
                         Button("Add Repository") { showingAddRepository = true }
                             .buttonStyle(.borderedProminent)
