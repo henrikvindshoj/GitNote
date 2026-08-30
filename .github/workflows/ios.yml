@@ -1,0 +1,29 @@
+name: iOS
+
+on:
+  push:
+    paths:
+      - "apps/ios/**"
+      - ".github/workflows/ios.yml"
+  pull_request:
+    paths:
+      - "apps/ios/**"
+      - ".github/workflows/ios.yml"
+
+jobs:
+  build:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode_16.4.app
+      - name: Build
+        run: >-
+          xcodebuild
+          -project apps/ios/GitNote.xcodeproj
+          -scheme GitNote
+          -sdk iphonesimulator
+          -destination 'generic/platform=iOS Simulator'
+          -derivedDataPath /tmp/GitNoteDerivedData
+          CODE_SIGNING_ALLOWED=NO
+          build
