@@ -1,6 +1,6 @@
 # GitHub OAuth setup
 
-GitNote uses GitHub's OAuth device flow. The app opens GitHub in the browser, displays a one-time code, polls at GitHub's required interval, validates the resulting user, and stores the access token in Keychain. No client secret is embedded in the app.
+The iOS app uses GitHub's OAuth device flow. The app opens GitHub in the browser, displays a one-time code, polls at GitHub's required interval, validates the resulting user, and stores the access token in Keychain. No client secret is embedded in the app.
 
 ## Register GitNote
 
@@ -26,3 +26,14 @@ GitNote requests `repo`, which permits it to browse, clone, and push public and 
 Run GitNote from Xcode with normal code signing enabled. A simulator build created with
 `CODE_SIGNING_ALLOWED=NO` can launch, but iOS will reject Keychain access with status
 `-34018`. The GitNote test suite includes a signed Keychain round-trip test to catch this.
+
+## Web authentication
+
+The React client does not use the iOS device flow or an embedded client secret. It connects directly to GitHub’s REST API with a personal access token supplied in the account dialog.
+
+1. Create a [fine-grained personal access token](https://github.com/settings/personal-access-tokens/new).
+2. Select the repositories the browser client should access.
+3. Grant **Contents: Read and write** for sync, or read-only access for downloading notes. Required metadata access is included by GitHub.
+4. Paste the token in **GitHub account** and connect. GitNote validates it with the authenticated user endpoint.
+
+The token is held in memory only, never in IndexedDB, localStorage, sessionStorage, URLs, or the service worker cache. Re-enter it after reloading the page. Disconnecting leaves local notes intact; remove a local copy or clear site data to remove downloaded private content. Public repositories can be downloaded without authentication. Branch protection and organization policies still apply to sync.

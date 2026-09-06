@@ -1,6 +1,6 @@
 # GitNote development guide
 
-GitNote is a local-first client for Markdown repositories hosted on GitHub. The MVP is a native iPhone and iPad app that can discover multiple GitHub repositories, create real local Git working copies, browse and edit Markdown, show working-tree changes, and expose its Documents directory through the Files app.
+GitNote is a local-first client for Markdown repositories hosted on GitHub. The native iPhone and iPad MVP is an app that can discover multiple GitHub repositories, create real local Git working copies, browse and edit Markdown, show working-tree changes, and expose its Documents directory through the Files app.
 
 ## Repository layout
 
@@ -8,7 +8,7 @@ GitNote is a local-first client for Markdown repositories hosted on GitHub. The 
 apps/
   ios/                 Native SwiftUI MVP
   android/             Reserved Android application boundary
-  web/                 Reserved web application boundary
+  web/                 React / TypeScript browser client
 services/
   api/                 Optional future backend services
 packages/
@@ -31,7 +31,21 @@ Requirements: Xcode 26 or newer and iOS 17 or newer.
 
 OAuth tokens are stored in Keychain. The MVP never writes a token into a clone URL or Git configuration.
 
-## Current MVP boundary
+## Run the web app
+
+Requirements: Node.js 22.12+ and npm.
+
+```sh
+cd apps/web
+npm ci
+npm run dev
+```
+
+Use `npm test` for unit tests and `npm run build` for type checking and the production build. Run `npx playwright install chromium` followed by `npm run test:e2e` for browser tests. The web CI workflow runs these checks independently of iOS.
+
+The web client uses React, Tiptap, IndexedDB, and the GitHub REST API. Its production build caches the application shell for offline reopening. It needs no backend or OAuth client ID; private repositories and sync use a token held in memory for the current session. See the [web README](../apps/web/README.md) for authentication, deployment, supported workflows, and browser limits.
+
+## Current iOS MVP boundary
 
 Implemented:
 
@@ -48,10 +62,12 @@ Not yet implemented:
 
 - Pull, branch management, and merge conflict resolution.
 - Guaranteed direct vault adoption by Obsidian on every Apple platform.
-- Android, Web, or backend runtime code.
+- Android or backend runtime code.
 
 See the [MVP acceptance criteria](MVP.md) and the [longer-term project plan](../PLAN.md).
 
 ## Security note
 
-GitNote requests the OAuth `repo` scope so it can access public and authorized private repositories. Access tokens remain in Keychain and are supplied to libgit2 only through an in-memory credential callback. Users who signed in with an older build must disconnect and sign in again to grant the expanded scope.
+The iOS app requests the OAuth `repo` scope so it can access public and authorized private repositories. Access tokens remain in Keychain and are supplied to libgit2 only through an in-memory credential callback. Users who signed in with an older build must disconnect and sign in again to grant the expanded scope.
+
+The web app uses a fine-grained token with repository Contents access, stored only in memory. Downloaded notes, including private notes, stay in IndexedDB after disconnecting. See [web authentication](GITHUB_OAUTH.md#web-authentication).

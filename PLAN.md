@@ -1,5 +1,7 @@
 # GitNote product and implementation plan
 
+> Implementation status: iOS and React web MVPs are available. The web client uses browser snapshots and GitHub API commits rather than filesystem clones. This document retains the broader product roadmap; see [development](docs/DEVELOPMENT.md) and the [web guide](apps/web/README.md) for what is implemented today.
+
 ## 1. Product definition
 
 GitNote is a local-first Git client for Markdown repositories. It connects to GitHub, keeps multiple repositories as ordinary working copies, provides a focused Markdown browsing and editing experience, and lets other editors such as Obsidian work with the same files.
