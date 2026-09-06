@@ -9,6 +9,7 @@ GitNote is a local-first notes app for people who keep Markdown files in GitHub 
 - **Keep different collections together.** Connect multiple GitHub repositories and manage each one as a separate working copy.
 - **Write without Markdown getting in the way.** Edit notes in a Word-like view with formatting tools for headings, bold, italic, lists, quotes, links, code, and more.
 - **Work offline.** Read and edit cloned notes without a network connection.
+- **Organize with directories.** Browse nested folders and create directories or Markdown files wherever they belong.
 - **Stay in control of your files.** Your notes remain regular Markdown files inside real local Git repositories—not records locked inside a proprietary database.
 - **See what changed.** GitNote shows when a working copy has uncommitted changes and lets you inspect the changed files.
 - **Send updates to GitHub.** Sync stages your changes, creates a commit, and pushes it to the connected repository.

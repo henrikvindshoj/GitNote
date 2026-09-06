@@ -43,12 +43,14 @@ actor WorkspaceFileService {
     enum FileError: LocalizedError {
         case fileOutsideWorkspace
         case fileAlreadyExists
+        case directoryAlreadyExists
         case invalidTextEncoding
 
         var errorDescription: String? {
             switch self {
             case .fileOutsideWorkspace: "The selected file is outside its repository."
             case .fileAlreadyExists: "A file already exists at that path."
+            case .directoryAlreadyExists: "A file or directory already exists at that path."
             case .invalidTextEncoding: "The file is not valid UTF-8 text."
             }
         }
@@ -61,24 +63,43 @@ actor WorkspaceFileService {
         )
     }
 
-    func markdownFiles(in workspace: Workspace) throws -> [MarkdownFile] {
+    func contents(in workspace: Workspace) throws -> WorkspaceContents {
         let root = WorkspacePaths.repositoryURL(for: workspace).standardizedFileURL
         guard let enumerator = FileManager.default.enumerator(
             at: root,
-            includingPropertiesForKeys: [.isRegularFileKey, .isHiddenKey],
+            includingPropertiesForKeys: [.isDirectoryKey, .isRegularFileKey, .isHiddenKey, .isSymbolicLinkKey],
             options: [.skipsHiddenFiles, .skipsPackageDescendants]
-        ) else { return [] }
+        ) else { return WorkspaceContents(markdownFiles: [], directories: []) }
 
         var files: [MarkdownFile] = []
+        var directories: [RepositoryDirectory] = []
         for case let fileURL as URL in enumerator {
-            let values = try fileURL.resourceValues(forKeys: [.isRegularFileKey, .isHiddenKey])
-            guard values.isRegularFile == true, values.isHidden != true else { continue }
+            let values = try fileURL.resourceValues(
+                forKeys: [.isDirectoryKey, .isRegularFileKey, .isHiddenKey, .isSymbolicLinkKey]
+            )
+            guard values.isHidden != true, values.isSymbolicLink != true,
+                  let relativePath = relativePath(of: fileURL, beneath: root) else {
+                continue
+            }
+
+            if values.isDirectory == true {
+                directories.append(RepositoryDirectory(url: fileURL, relativePath: relativePath))
+                continue
+            }
+
+            guard values.isRegularFile == true else { continue }
             let fileExtension = fileURL.pathExtension.lowercased()
             guard fileExtension == "md" || fileExtension == "markdown" else { continue }
-            guard let relativePath = relativePath(of: fileURL, beneath: root) else { continue }
             files.append(MarkdownFile(url: fileURL, relativePath: relativePath))
         }
-        return files.sorted { $0.relativePath.localizedStandardCompare($1.relativePath) == .orderedAscending }
+        return WorkspaceContents(
+            markdownFiles: files.sorted {
+                $0.relativePath.localizedStandardCompare($1.relativePath) == .orderedAscending
+            },
+            directories: directories.sorted {
+                $0.relativePath.localizedStandardCompare($1.relativePath) == .orderedAscending
+            }
+        )
     }
 
     func read(_ file: MarkdownFile, in workspace: Workspace) throws -> String {
@@ -115,6 +136,25 @@ actor WorkspaceFileService {
         )
         try contents.write(to: target, atomically: true, encoding: .utf8)
         return MarkdownFile(url: target, relativePath: relativePath.value)
+    }
+
+    func createDirectory(
+        at relativePath: DirectoryRelativePath,
+        in workspace: Workspace
+    ) throws -> RepositoryDirectory {
+        let root = WorkspacePaths.repositoryURL(for: workspace).standardizedFileURL
+        let target = root
+            .appending(path: relativePath.value, directoryHint: .isDirectory)
+            .standardizedFileURL
+        guard self.relativePath(of: target, beneath: root) == relativePath.value else {
+            throw FileError.fileOutsideWorkspace
+        }
+        guard !FileManager.default.fileExists(atPath: target.path) else {
+            throw FileError.directoryAlreadyExists
+        }
+
+        try FileManager.default.createDirectory(at: target, withIntermediateDirectories: true)
+        return RepositoryDirectory(url: target, relativePath: relativePath.value)
     }
 
     func remove(_ workspace: Workspace) throws {

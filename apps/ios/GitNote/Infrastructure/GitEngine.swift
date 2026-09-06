@@ -55,6 +55,7 @@ actor GitEngine {
             git_clone_options_init(&options, UInt32(GIT_CLONE_OPTIONS_VERSION)),
             operation: "prepare the clone"
         )
+        options.fetch_opts.follow_redirects = GIT_REMOTE_REDIRECT_INITIAL
 
         let tokenPayload = token.map { Unmanaged.passRetained(GitHubCredentialPayload(token: $0)) }
         defer { tokenPayload?.release() }
@@ -244,6 +245,9 @@ actor GitEngine {
             git_push_options_init(&options, UInt32(GIT_PUSH_OPTIONS_VERSION)),
             operation: "prepare the push"
         )
+        // Use libgit2's default explicitly; an absent config key can otherwise
+        // leave a stale error that obscures a later credential rejection.
+        options.follow_redirects = GIT_REMOTE_REDIRECT_INITIAL
 
         let tokenPayload = Unmanaged.passRetained(GitHubCredentialPayload(token: token))
         defer { tokenPayload.release() }
@@ -268,7 +272,9 @@ actor GitEngine {
     private func check(_ result: Int32, operation: String) throws {
         guard result >= 0 else {
             let message: String
-            if let error = git_error_last(), let rawMessage = error.pointee.message {
+            if result == GIT_EAUTH.rawValue {
+                message = "GitHub authentication failed. Reconnect your GitHub account and check that it has write access to this repository."
+            } else if let error = git_error_last(), let rawMessage = error.pointee.message {
                 message = String(cString: rawMessage)
             } else {
                 message = "libgit2 error \(result)"
@@ -288,6 +294,7 @@ actor GitEngine {
             .fromOpaque(payload)
             .takeUnretainedValue()
         guard let token = credentialPayload.takeToken() else {
+            git_error_set_str(Int32(GIT_ERROR_HTTP.rawValue), "GitHub rejected the supplied credentials")
             return GIT_EAUTH.rawValue
         }
         return token.withCString { rawToken in
