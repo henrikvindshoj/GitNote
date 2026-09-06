@@ -10,20 +10,34 @@ on:
       - "apps/ios/**"
       - ".github/workflows/ios.yml"
 
+permissions:
+  contents: read
+
 jobs:
   build:
-    runs-on: macos-15
+    timeout-minutes: 20
+    runs-on: macos-26
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - name: Select Xcode
-        run: sudo xcode-select -s /Applications/Xcode_16.4.app
-      - name: Build
+        run: sudo xcode-select -s /Applications/Xcode_26.6.app
+      - name: Select an available iPhone simulator
+        id: simulator
+        run: |
+          python3 - <<'PYCODE' >> "$GITHUB_OUTPUT"
+          import json, subprocess
+          devices = json.loads(subprocess.check_output(["xcrun", "simctl", "list", "devices", "available", "--json"]))["devices"]
+          device = next(d for runtime in devices.values() for d in runtime if d["name"].startswith("iPhone"))
+          print("device_id=" + device["udid"])
+          PYCODE
+      - name: Build and run signed simulator tests
         run: >-
           xcodebuild
           -project apps/ios/GitNote.xcodeproj
           -scheme GitNote
           -sdk iphonesimulator
-          -destination 'generic/platform=iOS Simulator'
+          -destination 'platform=iOS Simulator,id=${{ steps.simulator.outputs.device_id }}'
           -derivedDataPath /tmp/GitNoteDerivedData
-          CODE_SIGNING_ALLOWED=NO
-          build
+          CODE_SIGN_IDENTITY=-
+          CODE_SIGNING_ALLOWED=YES
+          test

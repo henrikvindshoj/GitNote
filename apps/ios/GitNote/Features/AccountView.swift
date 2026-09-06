@@ -6,6 +6,8 @@ struct AccountView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.openURL) private var openURL
 
+    @State private var personalToken = ""
+
     var body: some View {
         NavigationStack {
             Form {
@@ -18,8 +20,25 @@ struct AccountView: View {
                         Button("Disconnect", role: .destructive) {
                             model.disconnect()
                         }
+                        .disabled(model.isBusy)
                     }
                 } else {
+                    Section {
+                        SecureField("Fine-grained personal access token", text: $personalToken)
+                            .textInputAutocapitalization(.never)
+                            .autocorrectionDisabled()
+                        Button("Connect selected repositories") {
+                            let token = personalToken
+                            personalToken = ""
+                            Task { _ = await model.connectPersonalAccessToken(token) }
+                        }
+                        .disabled(personalToken.isEmpty || model.isBusy || model.isGitHubSignInInProgress)
+                        Link("Create a fine-grained token", destination: URL(string: "https://github.com/settings/personal-access-tokens/new")!)
+                    } header: {
+                        Text("Selected repositories (recommended)")
+                    } footer: {
+                        Text("Select only your notes repositories and grant Contents read/write permission. Set an expiration date. Your token is stored in Keychain and available only while this device is unlocked.")
+                    }
                     Section {
                         if let authorization = model.githubDeviceAuthorization {
                             Text("Copy this code, then paste it into GitHub on the next screen.")
@@ -46,18 +65,23 @@ struct AccountView: View {
                             Button {
                                 model.startGitHubSignIn()
                             } label: {
-                                Label("Sign in with GitHub", systemImage: "person.crop.circle.badge.checkmark")
+                                Label("Connect public repositories with GitHub", systemImage: "person.crop.circle.badge.checkmark")
                             }
                         }
                     } header: {
                         Text("GitHub")
                     } footer: {
-                        Text("GitNote requests repository access so it can browse and sync public and private repositories. GitHub opens in your browser; the resulting token is stored in Keychain.")
+                        Text("Optional OAuth login requests access to all public repositories you can write to. Use a selected-repository token above for narrower access or private notes. Older OAuth grants may retain private-repository access until revoked in GitHub settings.")
                     }
                 }
 
                 Section("Local storage") {
-                    Text("Working copies are stored under Files → On My iPhone/iPad → GitNote → Repositories.")
+                    Text("Working copies are stored under Files → On My iPhone/iPad → GitNote → Repositories. Disconnecting does not remove notes or history. Remove local copies from the repository list when using a shared device.")
+                    Link("Manage or revoke GitHub tokens", destination: URL(string: "https://github.com/settings/tokens")!)
+                    Link("Revoke previous OAuth access", destination: URL(string: "https://github.com/settings/applications")!)
+                    Text("Disconnect removes this device’s token. Revoke it on GitHub to invalidate it everywhere.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
                 }
             }
             .navigationTitle("Account")
@@ -69,6 +93,7 @@ struct AccountView: View {
                 }
             }
         }
+        .onDisappear { personalToken = "" }
         .interactiveDismissDisabled(model.isGitHubSignInInProgress)
     }
 }

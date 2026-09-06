@@ -19,7 +19,7 @@ npm run build
 npm run preview
 ```
 
-Deploy the contents of `dist/` to a static host at the origin root over HTTPS. Service workers require HTTPS or localhost. The production service worker caches only application assets, never GitHub API responses. Development mode does not install a service worker.
+Deploy the contents of `dist/` to a dedicated static-host origin over HTTPS. The build generates `dist/_headers` with CSP, frame denial, MIME-sniffing protection, a no-referrer policy, restricted browser permissions, and HSTS. Use a host that supports this header-file format or translate it into that host’s response-header configuration; serving the file as an ordinary asset does not apply the policy. Vite preview enforces the same policy except HSTS. Before launch, inspect actual HTML and service-worker response headers and rerun the browser suite against the deployment. Do not serve the development server publicly. Service workers require HTTPS or localhost. The production service worker caches only application assets, never GitHub API responses. Development mode does not install a service worker.
 
 ## Use the app
 

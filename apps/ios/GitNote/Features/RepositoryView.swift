@@ -82,7 +82,7 @@ struct RepositoryView: View {
                         }
                     }
                 } footer: {
-                    Text("Sync stages every change, creates a Git commit, and pushes the current branch to origin.")
+                    Text("Sync checks GitHub for updates, downloads them when this copy is clean, and uploads local changes when the histories are compatible.")
                 }
             }
         }
@@ -91,7 +91,7 @@ struct RepositoryView: View {
                 ContentUnavailableView(
                     "Working tree clean",
                     systemImage: "checkmark.circle",
-                    description: Text("No file changes are waiting. You can still sync to retry an unpublished commit.")
+                    description: Text("No file changes are waiting. Sync to get updates from GitHub or upload unpublished commits.")
                 )
             }
         }
@@ -195,10 +195,10 @@ private struct SyncChangesView: View {
     @State private var syncResult: RepositorySyncResult?
 
     private var canSync: Bool {
-        !message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        !isSyncing && (changeCount == 0 || (
+            !message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
             && !authorName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-            && authorEmail.contains("@")
-            && !isSyncing
+            && authorEmail.contains("@")))
     }
 
     var body: some View {
@@ -209,8 +209,12 @@ private struct SyncChangesView: View {
                 } description: {
                     if let commitID = syncResult.commitID {
                         Text("Created and pushed commit \(String(commitID.prefix(8))).")
+                    } else if syncResult.pulled {
+                        Text("Downloaded the latest notes from GitHub.")
+                    } else if syncResult.pushed {
+                        Text("Uploaded your unpublished commits to GitHub.")
                     } else {
-                        Text("Pushed the current branch to GitHub.")
+                        Text("Your notes are already up to date.")
                     }
                 } actions: {
                     Button("Done") { dismiss() }
@@ -219,30 +223,38 @@ private struct SyncChangesView: View {
             } else {
                 Form {
                     Section {
-                        TextField("Commit message", text: $message, axis: .vertical)
+                        if changeCount > 0 {
+                            TextField("Commit message", text: $message, axis: .vertical)
+                        } else {
+                            Label("Get the latest from GitHub", systemImage: "arrow.triangle.2.circlepath")
+                        }
                     } header: {
-                        Text("Commit")
+                        Text(changeCount > 0 ? "Commit" : "Sync")
                     } footer: {
                         if changeCount == 0 {
-                            Text("There are no file changes. Sync will retry pushing any unpublished local commit.")
+                            Text("There are no file changes. Sync downloads newer notes, uploads unpublished commits, or confirms everything is up to date. It stops if the histories need merging.")
                         } else {
-                            Text("This stages all \(changeCount) change\(changeCount == 1 ? "" : "s"), creates one commit, and pushes the current branch to GitHub. It does not fetch or merge.")
+                            Text("This stages all \(changeCount) change\(changeCount == 1 ? "" : "s"), creates one commit, and pushes the current branch to GitHub. This includes non-Markdown and hidden files added by other editors. Review every changed file before syncing. GitHub is checked first; if newer remote commits need merging with these edits, sync stops and preserves your work.")
                         }
                     }
 
-                    Section("Author") {
+                    if changeCount > 0 {
+                      Section("Author") {
                         TextField("Name", text: $authorName)
                         TextField("Email", text: $authorEmail)
                             .textInputAutocapitalization(.never)
                             .keyboardType(.emailAddress)
                             .autocorrectionDisabled()
+                      }
                     }
+                    if isSyncing { ProgressView("Syncing with GitHub…") }
                 }
-                .navigationTitle("Sync Changes")
+                .disabled(isSyncing)
+                .navigationTitle("Sync")
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
                     ToolbarItem(placement: .cancellationAction) {
-                        Button("Cancel") { dismiss() }
+                        Button("Cancel") { dismiss() }.disabled(isSyncing)
                     }
                     ToolbarItem(placement: .confirmationAction) {
                         Button("Sync") { sync() }

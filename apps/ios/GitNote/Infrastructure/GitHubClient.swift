@@ -70,7 +70,7 @@ actor GitHubClient {
 }
 
 actor GitHubOAuthClient {
-    static let requestedScope = "repo"
+    static let requestedScope = "public_repo"
 
     enum OAuthError: LocalizedError {
         case missingClientID

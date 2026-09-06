@@ -7,7 +7,7 @@ GitNote uses a product monorepo rather than a shared-runtime monolith. Each clie
 - `apps/ios`: SwiftUI, Keychain, Files integration, and libgit2.
 - `apps/android`: future Kotlin/Compose client and native Git adapter.
 - `apps/web`: React/TypeScript, Tiptap, IndexedDB, and a GitHub REST adapter. Browser copies are note snapshots, not local Git working trees.
-- `services/api`: optional future webhooks, notification relay, or account services. OAuth device flow and repository contents travel directly between the client and GitHub.
+- `services/api`: optional future webhooks, notification relay, or account services. Token-authenticated requests, optional public-repository OAuth device flow, and repository contents travel directly between the client and GitHub.
 - `packages/contracts`: OpenAPI and other platform-neutral schemas. Generated clients may be produced within each platform folder.
 
 ## iOS layers
@@ -29,6 +29,12 @@ GitHub Git   Workspace files
 - `Features` contains screens and reusable views.
 
 The app stores workspace metadata as JSON in Application Support and real clones under `Documents/Repositories`. `UIFileSharingEnabled` and `LSSupportsOpeningDocumentsInPlace` make the Documents container visible through Files. Repository contents are canonical; the metadata store never duplicates note bodies.
+
+## iOS sync
+
+Sync explicitly fetches GitHub branch heads into remote-tracking references using the same repository-bound credentials, certificate checks, disabled redirects, and transfer limits as clone. It compares the current branch with its downloaded counterpart. Equal heads produce no network write; a clean branch behind GitHub is fast-forwarded after checkout-size validation. Local-only commits or compatible file edits are uploaded without forcing the remote branch.
+
+Fast-forward checkout locks HEAD and the local branch, rechecks local status, and uses safe checkout with ignored-file overwrite protection. Dirty copies behind GitHub and diverged histories stop with an explanation; no merge, reset-to-remote, or automatic stash occurs. The sync result distinguishes downloaded changes, uploaded commits, and an already-current copy. The Changes tab reports file differences, so it can be empty even when the branch contains unpublished commits.
 
 ## Web layers
 
@@ -56,8 +62,10 @@ The MVP pins SwiftGitX 0.4.x, which wraps libgit2 and supports Apple platforms t
 - iOS GitHub OAuth tokens live only in Keychain. Web personal access tokens live only in memory and are cleared on reload or disconnect.
 - Push tokens are passed to libgit2 through an in-memory credential callback and are never persisted in Git configuration.
 - HTTP uses GitHub's HTTPS API and standard URLSession trust handling.
-- Clone URLs are validated HTTPS URLs and do not contain credentials.
+- Git URLs and resolved origin/push URLs must match the expected HTTPS GitHub repository, with no credentials, query, or fragment. Authenticated redirects are disabled.
 - File enumeration skips hidden files and never presents `.git` internals for editing.
-- All note writes are constrained to a URL produced by the workspace scanner.
+- Note reads and writes walk directories using no-follow file descriptors. Hidden paths, symlinks, and non-regular or hard-linked files are rejected; writes publish atomically within the opened directory. Notes have a 2 MB limit.
 
 Web HTTP goes directly to `https://api.github.com`; credentials are attached only in an Authorization header. Private browser copies remain in IndexedDB after disconnecting. Browser storage is subject to eviction and is not a filesystem vault. See the [web guide](../apps/web/README.md) for limits and export behavior.
+
+Production web builds generate a `_headers` file from `apps/web/security-headers.ts`; Vite preview uses the same security policy without HSTS. A deployment must use a host that honors this file or configure equivalent response headers. Private local copies still require device/browser access controls; disconnect is not local-data deletion or remote token revocation.

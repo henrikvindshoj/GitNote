@@ -1,4 +1,12 @@
-# GitHub OAuth setup
+# GitHub authentication setup
+
+## Recommended: selected-repository tokens on iOS
+
+In Account, create a fine-grained personal access token, select only the required repositories, grant Contents read/write (or read-only for downloads), and set an expiration date. Paste it into the secure field and choose **Connect selected repositories**. No OAuth client ID is needed for this option. GitNote validates the token with GitHub and stores it using `WhenUnlockedThisDeviceOnly` Keychain accessibility. This is the recommended path for public and private notebooks.
+
+Disconnect removes the local credential; it does not revoke it on GitHub or delete downloaded notes. Account contains links to token and OAuth settings for revocation. Existing broad OAuth grants must be revoked there before reauthorizing if you want to remove their old permissions.
+
+## Optional: OAuth for public repositories
 
 The iOS app uses GitHub's OAuth device flow. The app opens GitHub in the browser, displays a one-time code, polls at GitHub's required interval, validates the resulting user, and stores the access token in Keychain. No client secret is embedded in the app.
 
@@ -19,7 +27,7 @@ The iOS app uses GitHub's OAuth device flow. The app opens GitHub in the browser
 4. Set it to the copied client ID for both Debug and Release.
 5. Build and run, open **Account**, and choose **Sign in with GitHub**.
 
-GitNote requests `repo`, which permits it to browse, clone, and push public and authorized private repositories. Access tokens are stored in Keychain and passed to libgit2 through in-memory credential callbacks; they are never written into clone URLs or Git configuration. Users upgrading from a build that requested only `public_repo` must disconnect and sign in again once to grant the expanded scope.
+The optional OAuth flow requests `public_repo`, allowing public-repository access only for a new grant. It is broader than selected-repository tokens and is not recommended when narrower access is sufficient. Access tokens are stored in Keychain and passed to libgit2 through in-memory credential callbacks; they are never written into clone URLs or Git configuration. Users with an older `repo` grant must revoke it in GitHub’s Authorized OAuth Apps settings; requesting a smaller scope does not revoke previously granted access. Use a fine-grained token for private notebooks.
 
 ## Simulator signing
 
