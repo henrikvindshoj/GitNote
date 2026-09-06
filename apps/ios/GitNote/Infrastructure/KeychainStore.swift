@@ -55,7 +55,10 @@ struct KeychainStore: Sendable {
             kSecAttrService as String: service,
             kSecAttrAccount as String: account
         ]
-        let attributes: [String: Any] = [kSecValueData as String: value]
+        let attributes: [String: Any] = [
+            kSecValueData as String: value,
+            kSecAttrAccessible as String: kSecAttrAccessibleWhenUnlockedThisDeviceOnly
+        ]
 
         let updateStatus = SecItemUpdate(query as CFDictionary, attributes as CFDictionary)
         if updateStatus == errSecSuccess { return }
@@ -65,7 +68,7 @@ struct KeychainStore: Sendable {
 
         var createQuery = query
         createQuery[kSecValueData as String] = value
-        createQuery[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
+        createQuery[kSecAttrAccessible as String] = kSecAttrAccessibleWhenUnlockedThisDeviceOnly
         let createStatus = SecItemAdd(createQuery as CFDictionary, nil)
         guard createStatus == errSecSuccess else {
             throw KeychainError.unexpectedStatus(createStatus)

@@ -42,12 +42,24 @@ struct AddRepositoryView: View {
                     accountRepositories
                 }
             }
+            .disabled(model.isBusy)
             .navigationTitle("Add Repository")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Close") { dismiss() }
+                    Button("Close") { dismiss() }.disabled(model.isBusy)
                 }
+            }
+        }
+        .interactiveDismissDisabled(model.isBusy)
+        .overlay {
+            if model.isCloning {
+                VStack(spacing: 16) {
+                    ProgressView("Cloning repository…")
+                    Button("Cancel clone", role: .cancel) { model.cancelClone() }
+                }
+                .padding(24)
+                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 18))
             }
         }
     }
@@ -65,7 +77,7 @@ struct AddRepositoryView: View {
             } header: {
                 Text("GitHub repository")
             } footer: {
-                Text("You can also paste a full https://github.com URL. Sign in first for a private repository. A real Git working copy will be stored under Files → GitNote → Repositories.")
+                Text("You can also paste a full https://github.com URL. Connect a selected-repository token first for private notes. A real Git working copy will be stored under Files → GitNote → Repositories.")
             }
         }
     }

@@ -271,4 +271,32 @@ struct RepositoryChange: Identifiable, Hashable, Sendable {
 
 struct RepositorySyncResult: Sendable {
     let commitID: String?
+    var pulled = false
+    var pushed = false
+}
+
+/// A token is scoped to one canonical GitHub repository, never just a suffix of a host.
+enum GitRemotePolicy {
+    static func repository(_ url: URL) -> String? {
+        guard let parts = URLComponents(url: url, resolvingAgainstBaseURL: false),
+              parts.scheme == "https", parts.host?.lowercased() == "github.com",
+              parts.port == nil || parts.port == 443,
+              parts.user == nil, parts.password == nil, parts.query == nil, parts.fragment == nil,
+              !parts.percentEncodedPath.contains("%"),
+              parts.path.hasPrefix("/"), !parts.path.hasSuffix("/") else { return nil }
+        var path = String(parts.path.dropFirst())
+        if path.hasSuffix(".git") { path.removeLast(4) }
+        let segments = path.split(separator: "/", omittingEmptySubsequences: false)
+        guard segments.count == 2, segments.allSatisfy({ segment in
+            !segment.isEmpty && segment != "." && segment != ".."
+                && segment.utf8.allSatisfy { (65...90).contains($0) || (97...122).contains($0)
+                    || (48...57).contains($0) || [45, 46, 95].contains($0) }
+        }) else { return nil }
+        return path.lowercased()
+    }
+
+    static func matches(_ url: URL, expected: URL) -> Bool {
+        guard let actual = repository(url), let expected = repository(expected) else { return false }
+        return actual == expected
+    }
 }

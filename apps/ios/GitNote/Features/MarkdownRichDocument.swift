@@ -1,5 +1,6 @@
 import SwiftUI
 import UIKit
+import ImageIO
 
 struct MarkdownEditorCommand: Equatable {
     let id = UUID()
@@ -10,6 +11,27 @@ struct MarkdownEditorCommand: Equatable {
 struct MarkdownImageContext: Equatable {
     let repositoryRoot: URL
     let documentURL: URL
+
+    func thumbnail(for destination: String) -> UIImage? {
+        guard let file = localFileURL(for: destination) else { return nil }
+        let canonicalRoot = repositoryRoot.standardizedFileURL.resolvingSymlinksInPath()
+        guard file.path.hasPrefix(canonicalRoot.path + "/") else { return nil }
+        let path = String(file.path.dropFirst(canonicalRoot.path.count + 1))
+        guard let data = try? SecureWorkspaceIO.read(root: repositoryRoot, path: path, limit: 8_000_000),
+              let source = CGImageSourceCreateWithData(data as CFData, [kCGImageSourceShouldCache: false] as CFDictionary),
+              let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any],
+              let width = properties[kCGImagePropertyPixelWidth] as? NSNumber,
+              let height = properties[kCGImagePropertyPixelHeight] as? NSNumber,
+              width.doubleValue > 0, height.doubleValue > 0,
+              width.doubleValue * height.doubleValue <= 40_000_000,
+              let image = CGImageSourceCreateThumbnailAtIndex(source, 0, [
+                kCGImageSourceCreateThumbnailFromImageAlways: true,
+                kCGImageSourceCreateThumbnailWithTransform: true,
+                kCGImageSourceThumbnailMaxPixelSize: 1_600,
+                kCGImageSourceShouldCacheImmediately: true
+              ] as CFDictionary) else { return nil }
+        return UIImage(cgImage: image)
+    }
 
     func localFileURL(for destination: String) -> URL? {
         var path = destination.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -556,8 +578,7 @@ enum MarkdownRichCodec {
         to output: NSMutableAttributedString
     ) {
         let altText = decodeStandardInline(altMarkdown).string
-        if let fileURL = imageContext?.localFileURL(for: destination),
-           let image = UIImage(contentsOfFile: fileURL.path) {
+        if let image = imageContext?.thumbnail(for: destination) {
             let attachment = NSTextAttachment()
             attachment.image = image
             let maximumWidth = min(max(UIScreen.main.bounds.width - 64, 240), 1_000)

@@ -12,6 +12,8 @@ final class AppModel: ObservableObject {
     @Published private(set) var hasStoredToken: Bool
     @Published private(set) var githubDeviceAuthorization: GitHubDeviceAuthorization?
     @Published private(set) var isGitHubSignInInProgress = false
+    @Published private(set) var isCloning = false
+    private var cloneTask: Task<Void, Error>?
     @Published private(set) var isBusy = false
     @Published private(set) var busyMessage: String?
     @Published var errorMessage: String?
@@ -48,6 +50,22 @@ final class AppModel: ObservableObject {
             await refreshAllWorkspaces()
         } catch {
             present(error)
+        }
+    }
+
+    func connectPersonalAccessToken(_ input: String) async -> Bool {
+        let token = input.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard token.hasPrefix("github_pat_") else {
+            errorMessage = "Use a fine-grained GitHub token with access only to your selected repositories."
+            return false
+        }
+        return await performBusy(message: "Connecting to GitHub…") {
+            let user = try await github.currentUser(token: token)
+            try keychain.saveToken(token)
+            githubUser = user
+            hasStoredToken = true
+            do { remoteRepositories = try await github.repositories(token: token) }
+            catch { present(error) }
         }
     }
 
@@ -138,6 +156,7 @@ final class AppModel: ObservableObject {
     func refreshGitHubConnection() async throws {
         guard let token = keychain.readToken() else { return }
         let user = try await github.currentUser(token: token)
+        try keychain.saveToken(token) // Migrate existing items to unlocked-device-only accessibility.
         githubUser = user
         remoteRepositories = try await github.repositories(token: token)
     }
@@ -167,6 +186,11 @@ final class AppModel: ObservableObject {
     }
 
     func clone(_ repository: GitHubRepository) async -> Bool {
+        guard let address = RepositoryAddress(repository.fullName),
+              GitRemotePolicy.matches(repository.cloneURL, expected: address.cloneURL) else {
+            present(GitEngine.EngineError.untrustedRemote)
+            return false
+        }
         let token = keychain.readToken()
         guard !repository.isPrivate || token != nil else {
             errorMessage = "Sign in with GitHub from Account settings before cloning a private repository."
@@ -181,11 +205,17 @@ final class AppModel: ObservableObject {
             try await files.prepareRoot()
             let folderName = repository.fullName.replacingOccurrences(of: "/", with: "--")
             let workspace = Workspace(repository: repository, localFolderName: folderName)
-            try await git.clone(
-                from: repository.cloneURL,
-                to: WorkspacePaths.repositoryURL(for: workspace),
-                token: token
-            )
+            isCloning = true
+            let task = Task {
+                try await git.clone(
+                    from: repository.cloneURL,
+                    to: WorkspacePaths.repositoryURL(for: workspace),
+                    token: token
+                )
+            }
+            cloneTask = task
+            defer { cloneTask = nil; isCloning = false }
+            try await task.value
             workspaces.append(workspace)
             workspaces.sort { $0.fullName.localizedCaseInsensitiveCompare($1.fullName) == .orderedAscending }
             try metadata.save(workspaces)
@@ -193,6 +223,8 @@ final class AppModel: ObservableObject {
             await refresh(workspace)
         }
     }
+
+    func cancelClone() { cloneTask?.cancel() }
 
     func refresh(_ workspace: Workspace) async {
         do {
@@ -279,14 +311,14 @@ final class AppModel: ObservableObject {
         authorName rawAuthorName: String,
         authorEmail rawAuthorEmail: String
     ) async -> RepositorySyncResult? {
+        guard let address = RepositoryAddress(workspace.fullName),
+              GitRemotePolicy.matches(workspace.cloneURL, expected: address.cloneURL) else {
+            present(GitEngine.EngineError.untrustedRemote)
+            return nil
+        }
         let message = rawMessage.trimmingCharacters(in: .whitespacesAndNewlines)
         let authorName = rawAuthorName.trimmingCharacters(in: .whitespacesAndNewlines)
         let authorEmail = rawAuthorEmail.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !message.isEmpty, !authorName.isEmpty, authorEmail.contains("@") else {
-            errorMessage = "Enter a commit message, author name, and valid author email."
-            return nil
-        }
-
         let currentChanges = changesByWorkspace[workspace.id] ?? []
         guard !currentChanges.contains(where: { $0.kind == .conflicted }) else {
             errorMessage = "This working copy contains conflicts. Conflict resolution will be added in a later update."
@@ -303,11 +335,13 @@ final class AppModel: ObservableObject {
                 message: message,
                 authorName: authorName,
                 authorEmail: authorEmail,
-                token: token
+                token: token,
+                expectedRemoteURL: address.cloneURL
             )
             await refresh(workspace)
             return result
         } catch {
+            await refresh(workspace)
             present(error)
             return nil
         }
@@ -335,6 +369,7 @@ final class AppModel: ObservableObject {
 
     @discardableResult
     private func performBusy(message: String, operation: () async throws -> Void) async -> Bool {
+        guard !isBusy else { return false }
         isBusy = true
         busyMessage = message
         defer {

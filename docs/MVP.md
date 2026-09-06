@@ -20,11 +20,12 @@ Prove the smallest useful GitNote loop on a physical iPhone or iPad:
 - [x] Markdown opens in a directly editable, syntax-hiding surface with common formatting tools and secondary raw-source inspection.
 - [x] Working-tree changes are listed after an edit or foreground refresh.
 - [x] Dirty working copies are visible in the repository list.
-- [x] Sync stages all changes, creates a local Git commit, and pushes the current branch without first reconciling remote changes.
+- [x] Sync fetches GitHub first, fast-forwards a clean copy, or stages/commits/pushes compatible local changes. Diverged history and local edits behind GitHub stop without overwriting work.
 - [x] Cloned repositories remain readable offline.
 - [x] The Documents container is visible in Files.
 - [ ] Validate Obsidian round-trip behavior on physical devices and document the exact supported location.
-- [ ] Add selective staging, safe pull, and conflict resolution.
+- [x] Download newer commits into clean copies with safe fast-forward checkout.
+- [ ] Add selective staging and conflict resolution.
 
 ## Manual test
 

@@ -25,8 +25,8 @@ Requirements: Xcode 26 or newer and iOS 17 or newer.
 1. Open `apps/ios/GitNote.xcodeproj`.
 2. Select the `GitNote` scheme and an iPhone or iPad simulator.
 3. Build and run.
-4. Configure the GitHub OAuth client ID as described in the [GitHub OAuth setup guide](GITHUB_OAUTH.md).
-5. Open Account, choose **Sign in with GitHub**, and authorize GitNote as your GitHub user.
+4. Create a fine-grained token as described in the [authentication guide](GITHUB_OAUTH.md).
+5. Open Account and choose **Connect selected repositories**. The optional OAuth route is for public repositories and requires a configured client ID.
 6. Add a public or private repository directly as `owner/repository`, or browse repositories available to your account.
 
 OAuth tokens are stored in Keychain. The MVP never writes a token into a clone URL or Git configuration.
@@ -50,17 +50,17 @@ The web client uses React, Tiptap, IndexedDB, and the GitHub REST API. Its produ
 Implemented:
 
 - Multiple local working copies.
-- GitHub OAuth device login, account validation, and repository discovery.
+- Selected-repository personal tokens, optional public-repository OAuth device login, account validation, and repository discovery.
 - Authenticated `libgit2` clones for public and authorized private HTTPS repositories.
 - Markdown file creation and Word-like editing with hidden syntax, a persistent formatting toolbox, and secondary raw-source inspection.
 - Git working-tree status.
-- Dirty working-copy badges and optimistic stage-all, commit, and authenticated push sync.
+- Dirty working-copy badges and sync that fetches first, fast-forwards clean copies, and commits/pushes compatible local changes. Clean downloads need no commit message or author details.
 - Files app visibility via document sharing.
 - Offline access to cloned notes.
 
 Not yet implemented:
 
-- Pull, branch management, and merge conflict resolution.
+- Automatic merging/rebasing, branch management, and merge conflict resolution. Diverged history and dirty copies behind GitHub are preserved and require reconciliation in another Git client.
 - Guaranteed direct vault adoption by Obsidian on every Apple platform.
 - Android or backend runtime code.
 
@@ -68,6 +68,8 @@ See the [MVP acceptance criteria](MVP.md) and the [longer-term project plan](../
 
 ## Security note
 
-The iOS app requests the OAuth `repo` scope so it can access public and authorized private repositories. Access tokens remain in Keychain and are supplied to libgit2 only through an in-memory credential callback. Users who signed in with an older build must disconnect and sign in again to grant the expanded scope.
+iOS recommends fine-grained tokens limited to selected repositories. Optional OAuth requests `public_repo`; previous broad grants must be revoked in GitHub settings. Credentials use unlocked-device-only Keychain storage, an exact GitHub repository destination check, normal certificate validation, and no authenticated redirects. Symlink components are rejected during file access. Notes are limited to 2 MB; clones are limited to 100 MB transferred and checked out, 20,000 objects, 10,000 files, and 20 MB per checked-out file. Images are bounded before thumbnail decoding. Clone cancellation and the 120-second deadline are checked at libgit2 progress boundaries.
+
+CI runs signed simulator XCTest, browser tests, and npm advisory checks. The security assessment and remediation status are in [the security report](security/ASSESSMENT-2026-09-06.md).
 
 The web app uses a fine-grained token with repository Contents access, stored only in memory. Downloaded notes, including private notes, stay in IndexedDB after disconnecting. See [web authentication](GITHUB_OAUTH.md#web-authentication).

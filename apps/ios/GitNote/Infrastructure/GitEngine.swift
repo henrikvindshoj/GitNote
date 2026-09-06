@@ -3,26 +3,66 @@ import SwiftGitX
 import libgit2
 import Darwin
 
-private final class GitHubCredentialPayload: @unchecked Sendable {
+final class GitHubCredentialPayload: @unchecked Sendable {
     private let lock = NSLock()
-    private let token: String
-    private var hasProvidedToken = false
+    private let token: String?
+    let expectedURL: URL
+    private let deadline = Date().addingTimeInterval(120)
+    private var checkoutBytes: UInt64 = 0
+    private var checkoutFiles = 0
+    private var cancelled = false
 
-    init(token: String) {
-        self.token = token
-    }
+    func cancel() { lock.lock(); cancelled = true; lock.unlock() }
 
-    func takeToken() -> String? {
+    func withinBudget(bytes: Int = 0, objects: UInt32 = 0, checkoutSize: UInt64? = nil) -> Bool {
         lock.lock()
         defer { lock.unlock() }
-        guard !hasProvidedToken else { return nil }
+        if let checkoutSize { checkoutBytes += checkoutSize; checkoutFiles += 1 }
+        return !cancelled && Date() < deadline && bytes <= 100_000_000 && objects <= 20_000
+            && checkoutBytes <= 100_000_000 && checkoutFiles <= 10_000
+            && (checkoutSize ?? 0) <= 20_000_000
+    }
+    private var hasProvidedToken = false
+
+    init(token: String?, expectedURL: URL) {
+        self.token = token
+        self.expectedURL = expectedURL
+    }
+
+    func takeToken(for url: URL) -> String? {
+        lock.lock()
+        defer { lock.unlock() }
+        guard !hasProvidedToken, GitRemotePolicy.matches(url, expected: expectedURL) else { return nil }
         hasProvidedToken = true
         return token
     }
 }
 
+private final class CheckoutValidationPayload {
+    let odb: OpaquePointer
+    let budget: GitHubCredentialPayload
+    init(odb: OpaquePointer, budget: GitHubCredentialPayload) { self.odb = odb; self.budget = budget }
+}
+
 actor GitEngine {
+    #if DEBUG
+    private let allowLocalTestRemotes: Bool
+    init(allowLocalTestRemotes: Bool = false) { self.allowLocalTestRemotes = allowLocalTestRemotes }
+    #endif
+
+    private func validateRemote(_ url: URL, expected: URL) throws {
+        #if DEBUG
+        if allowLocalTestRemotes && url.isFileURL && expected.isFileURL && url == expected { return }
+        #endif
+        guard GitRemotePolicy.matches(url, expected: expected) else { throw EngineError.untrustedRemote }
+    }
+
     enum EngineError: LocalizedError {
+        case divergedHistory
+        case localChangesNeedMerge
+        case invalidCommitIdentity
+        case untrustedRemote
+        case resourceLimit
         case destinationExists
         case conflictsUnsupported
         case gitOperation(operation: String, message: String)
@@ -30,6 +70,16 @@ actor GitEngine {
 
         var errorDescription: String? {
             switch self {
+            case .divergedHistory:
+                "This device and GitHub both have commits the other does not have. Your local commits are preserved. Merge them using a Git client before syncing again."
+            case .localChangesNeedMerge:
+                "GitHub has newer commits and this device has unsaved-to-Git file changes. Your files have not been replaced. Preserve and merge those edits using a Git client, then sync again."
+            case .invalidCommitIdentity:
+                "Local changes need a commit message, author name, and valid email before they can be uploaded."
+            case .untrustedRemote:
+                "The Git remote does not match this workspace’s GitHub HTTPS repository. Restore its origin and push URL before syncing."
+            case .resourceLimit:
+                "Download stopped: cancelled, timed out, or exceeded the safety limit (100 MB transfer/checkout, 20,000 objects, 10,000 files, 20 MB per file)."
             case .destinationExists:
                 "A local folder already exists for this repository."
             case .conflictsUnsupported:
@@ -43,6 +93,7 @@ actor GitEngine {
     }
 
     func clone(from remoteURL: URL, to localURL: URL, token: String? = nil) async throws {
+        try validateRemote(remoteURL, expected: remoteURL)
         guard !FileManager.default.fileExists(atPath: localURL.path) else {
             throw EngineError.destinationExists
         }
@@ -55,23 +106,46 @@ actor GitEngine {
             git_clone_options_init(&options, UInt32(GIT_CLONE_OPTIONS_VERSION)),
             operation: "prepare the clone"
         )
-        options.fetch_opts.follow_redirects = GIT_REMOTE_REDIRECT_INITIAL
+        options.fetch_opts.follow_redirects = GIT_REMOTE_REDIRECT_NONE
 
-        let tokenPayload = token.map { Unmanaged.passRetained(GitHubCredentialPayload(token: $0)) }
-        defer { tokenPayload?.release() }
-        if let tokenPayload {
-            options.fetch_opts.callbacks.payload = tokenPayload.toOpaque()
-            options.fetch_opts.callbacks.credentials = Self.githubCredentials
-        }
+        let budget = GitHubCredentialPayload(token: token, expectedURL: remoteURL)
+        let tokenPayload = Unmanaged.passRetained(budget)
+        defer { tokenPayload.release() }
+        options.fetch_opts.callbacks.payload = tokenPayload.toOpaque()
+        options.fetch_opts.callbacks.credentials = Self.githubCredentials
+        options.fetch_opts.callbacks.certificate_check = Self.githubCertificate
+        options.fetch_opts.callbacks.transfer_progress = Self.transferProgress
+        options.checkout_opts.checkout_strategy = GIT_CHECKOUT_NONE.rawValue
+        options.checkout_opts.notify_flags = GIT_CHECKOUT_NOTIFY_ALL.rawValue
+        options.checkout_opts.notify_cb = Self.checkoutBudget
+        options.checkout_opts.notify_payload = tokenPayload.toOpaque()
 
         var repositoryPointer: OpaquePointer?
-        let result = remoteURL.absoluteString.withCString { rawRemoteURL in
-            localURL.path.withCString { rawLocalPath in
-                git_clone(&repositoryPointer, rawRemoteURL, rawLocalPath, &options)
+        var result = await withTaskCancellationHandler {
+            remoteURL.absoluteString.withCString { rawRemoteURL in
+                localURL.path.withCString { rawLocalPath in
+                    git_clone(&repositoryPointer, rawRemoteURL, rawLocalPath, &options)
+                }
+            }
+        } onCancel: { budget.cancel() }
+        if result >= 0, let repositoryPointer {
+            do {
+                try validateCheckout(repositoryPointer, budget: budget)
+                options.checkout_opts.checkout_strategy = GIT_CHECKOUT_SAFE.rawValue | GIT_CHECKOUT_RECREATE_MISSING.rawValue
+                result = await withTaskCancellationHandler {
+                    git_checkout_head(repositoryPointer, &options.checkout_opts)
+                } onCancel: { budget.cancel() }
+            } catch {
+                git_repository_free(repositoryPointer)
+                try? FileManager.default.removeItem(at: localURL)
+                throw error
             }
         }
-        if let repositoryPointer {
-            git_repository_free(repositoryPointer)
+        if let repositoryPointer { git_repository_free(repositoryPointer) }
+        if result < 0 {
+            // This destination was absent before this operation; never leave a partial clone.
+            try? FileManager.default.removeItem(at: localURL)
+            if result == GIT_EUSER.rawValue { throw EngineError.resourceLimit }
         }
         try check(result, operation: "clone the repository")
     }
@@ -109,27 +183,135 @@ actor GitEngine {
         message: String,
         authorName: String,
         authorEmail: String,
-        token: String
+        token: String,
+        expectedRemoteURL: URL
     ) throws -> RepositorySyncResult {
         let repository = try Repository.open(at: localURL)
+        try validateOrigin(at: localURL, expected: expectedRemoteURL)
         let status = try repository.status()
         guard !status.contains(where: { entry in
             entry.status.contains(where: { if case .conflicted = $0 { true } else { false } })
         }) else {
             throw EngineError.conflictsUnsupported
         }
-        let hasChanges = !status.isEmpty
+        let update = try fetchAndIntegrate(at: localURL, token: token, expectedRemoteURL: expectedRemoteURL)
+        // Re-read after network I/O: Files or another editor may have changed the copy.
+        let hasChanges = try !Repository.open(at: localURL).status().isEmpty
+        if hasChanges {
+            guard !message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+                  !authorName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+                  authorEmail.contains("@") else { throw EngineError.invalidCommitIdentity }
+        }
         let commitID = hasChanges
-            ? try commitAll(
-                at: localURL,
-                message: message,
-                authorName: authorName,
-                authorEmail: authorEmail
-            )
+            ? try commitAll(at: localURL, message: message, authorName: authorName, authorEmail: authorEmail)
             : nil
+        let needsPush = hasChanges || update == .needsPush
+        if needsPush {
+            try pushCurrentBranch(at: localURL, token: token, expectedRemoteURL: expectedRemoteURL)
+        }
+        return RepositorySyncResult(commitID: commitID, pulled: update == .pulled, pushed: needsPush)
+    }
 
-        try pushCurrentBranch(at: localURL, token: token)
-        return RepositorySyncResult(commitID: commitID)
+    private enum RemoteUpdate { case upToDate, pulled, needsPush }
+
+    private func fetchAndIntegrate(at localURL: URL, token: String, expectedRemoteURL: URL) throws -> RemoteUpdate {
+        var repository: OpaquePointer?
+        try check(git_repository_open(&repository, localURL.path), operation: "open repository")
+        guard let repository else { throw EngineError.conflictsUnsupported }
+        defer { git_repository_free(repository) }
+        guard git_repository_state(repository) == GIT_REPOSITORY_STATE_NONE.rawValue else {
+            throw EngineError.conflictsUnsupported
+        }
+        var remote: OpaquePointer?
+        try check(git_remote_lookup(&remote, repository, "origin"), operation: "find origin")
+        guard let remote else { throw EngineError.untrustedRemote }
+        defer { git_remote_free(remote) }
+        try validateRemotePointer(remote, expected: expectedRemoteURL)
+        var options = git_fetch_options()
+        try check(git_fetch_options_init(&options, UInt32(GIT_FETCH_OPTIONS_VERSION)), operation: "prepare download")
+        options.follow_redirects = GIT_REMOTE_REDIRECT_NONE
+        options.download_tags = GIT_REMOTE_DOWNLOAD_TAGS_NONE
+        options.prune = GIT_FETCH_PRUNE
+        let budget = GitHubCredentialPayload(token: token, expectedURL: expectedRemoteURL)
+        let payload = Unmanaged.passRetained(budget)
+        defer { payload.release() }
+        options.callbacks.payload = payload.toOpaque()
+        options.callbacks.credentials = Self.githubCredentials
+        options.callbacks.certificate_check = Self.githubCertificate
+        options.callbacks.transfer_progress = Self.transferProgress
+        // An explicit destination prevents mutable fetch configuration from writing
+        // local branches. '+' only permits updates to remote-tracking references.
+        guard let spec = strdup("+refs/heads/*:refs/remotes/origin/*") else { throw EngineError.resourceLimit }
+        defer { free(spec) }
+        var specPointer: UnsafeMutablePointer<CChar>? = spec
+        let fetchResult = withUnsafeMutablePointer(to: &specPointer) { pointer in
+            var specs = git_strarray(strings: pointer, count: 1)
+            return git_remote_fetch(remote, &specs, &options, "GitNote: fetch before sync")
+        }
+        if fetchResult == GIT_EUSER.rawValue { throw EngineError.resourceLimit }
+        try check(fetchResult, operation: "download changes from GitHub")
+
+        var head: OpaquePointer?
+        let headResult = git_repository_head(&head, repository)
+        if headResult == GIT_EUNBORNBRANCH.rawValue { return .needsPush }
+        try check(headResult, operation: "read current branch")
+        guard let head else { throw EngineError.conflictsUnsupported }
+        defer { git_reference_free(head) }
+        guard git_reference_is_branch(head) == 1,
+              let rawName = git_reference_name(head), let localOID = git_reference_target(head) else {
+            throw EngineError.conflictsUnsupported
+        }
+        let branchName = String(cString: rawName)
+        let remoteName = "refs/remotes/origin/" + branchName.dropFirst("refs/heads/".count)
+        var tracking: OpaquePointer?
+        let trackingResult = git_reference_lookup(&tracking, repository, remoteName)
+        if trackingResult == GIT_ENOTFOUND.rawValue { return .needsPush }
+        try check(trackingResult, operation: "read downloaded branch")
+        guard let tracking else { throw EngineError.conflictsUnsupported }
+        defer { git_reference_free(tracking) }
+        guard let remoteOID = git_reference_target(tracking) else { throw EngineError.conflictsUnsupported }
+        if git_oid_equal(localOID, remoteOID) == 1 { return .upToDate }
+        let localAhead = git_graph_descendant_of(repository, localOID, remoteOID)
+        try check(localAhead, operation: "compare local commits")
+        if localAhead == 1 { return .needsPush }
+        let remoteAhead = git_graph_descendant_of(repository, remoteOID, localOID)
+        try check(remoteAhead, operation: "compare GitHub commits")
+        guard remoteAhead == 1 else { throw EngineError.divergedHistory }
+
+        // Lock HEAD and its branch before checking out; another Git client must
+        // not switch/update the branch during the filesystem/ref update.
+        var transaction: OpaquePointer?
+        try check(git_transaction_new(&transaction, repository), operation: "prepare branch update")
+        guard let transaction else { throw EngineError.conflictsUnsupported }
+        defer { git_transaction_free(transaction) }
+        try check(git_transaction_lock_ref(transaction, "HEAD"), operation: "lock HEAD")
+        try check(git_transaction_lock_ref(transaction, branchName), operation: "lock current branch")
+        var current: OpaquePointer?
+        try check(git_repository_head(&current, repository), operation: "verify current branch")
+        guard let current else { throw EngineError.conflictsUnsupported }
+        defer { git_reference_free(current) }
+        guard let currentName = git_reference_name(current), String(cString: currentName) == branchName,
+              let currentOID = git_reference_target(current), git_oid_equal(currentOID, localOID) == 1 else {
+            throw EngineError.localChangesNeedMerge
+        }
+        guard try Repository.open(at: localURL).status().isEmpty else { throw EngineError.localChangesNeedMerge }
+        var target: OpaquePointer?
+        try check(git_commit_lookup(&target, repository, remoteOID), operation: "read downloaded commit")
+        guard let target else { throw EngineError.conflictsUnsupported }
+        defer { git_commit_free(target) }
+        try validateCheckout(repository, budget: budget, target: target)
+        var checkout = git_checkout_options()
+        try check(git_checkout_options_init(&checkout, UInt32(GIT_CHECKOUT_OPTIONS_VERSION)), operation: "prepare local update")
+        checkout.checkout_strategy = GIT_CHECKOUT_SAFE.rawValue | GIT_CHECKOUT_DONT_OVERWRITE_IGNORED.rawValue
+        checkout.notify_flags = GIT_CHECKOUT_NOTIFY_ALL.rawValue
+        checkout.notify_cb = Self.checkoutBudget
+        checkout.notify_payload = payload.toOpaque()
+        let checkoutResult = git_checkout_tree(repository, target, &checkout)
+        if checkoutResult == GIT_EUSER.rawValue { throw EngineError.resourceLimit }
+        try check(checkoutResult, operation: "update local notes without overwriting edits")
+        try check(git_transaction_set_target(transaction, branchName, remoteOID, nil, "GitNote: fast-forward from GitHub"), operation: "prepare updated branch")
+        try check(git_transaction_commit(transaction), operation: "save updated branch")
+        return .pulled
     }
 
     #if DEBUG
@@ -203,7 +385,7 @@ actor GitEngine {
         try check(git_index_write(indexPointer), operation: "write the index")
     }
 
-    private func pushCurrentBranch(at localURL: URL, token: String) throws {
+    private func pushCurrentBranch(at localURL: URL, token: String, expectedRemoteURL: URL) throws {
         var repositoryPointer: OpaquePointer?
         try check(
             git_repository_open(&repositoryPointer, localURL.path),
@@ -223,6 +405,7 @@ actor GitEngine {
             throw EngineError.gitOperation(operation: "find the origin remote", message: "No remote returned")
         }
         defer { git_remote_free(remotePointer) }
+        try validateRemotePointer(remotePointer, expected: expectedRemoteURL)
 
         var headPointer: OpaquePointer?
         try check(git_repository_head(&headPointer, repositoryPointer), operation: "find the current branch")
@@ -245,14 +428,13 @@ actor GitEngine {
             git_push_options_init(&options, UInt32(GIT_PUSH_OPTIONS_VERSION)),
             operation: "prepare the push"
         )
-        // Use libgit2's default explicitly; an absent config key can otherwise
-        // leave a stale error that obscures a later credential rejection.
-        options.follow_redirects = GIT_REMOTE_REDIRECT_INITIAL
+        options.follow_redirects = GIT_REMOTE_REDIRECT_NONE
 
-        let tokenPayload = Unmanaged.passRetained(GitHubCredentialPayload(token: token))
+        let tokenPayload = Unmanaged.passRetained(GitHubCredentialPayload(token: token, expectedURL: expectedRemoteURL))
         defer { tokenPayload.release() }
         options.callbacks.payload = tokenPayload.toOpaque()
         options.callbacks.credentials = Self.githubCredentials
+        options.callbacks.certificate_check = Self.githubCertificate
 
         guard let branchCString = strdup(branchName) else {
             throw EngineError.gitOperation(operation: "prepare the push", message: "Could not allocate the branch refspec")
@@ -267,6 +449,87 @@ actor GitEngine {
             git_remote_push(remotePointer, &refspecs, &options),
             operation: "push the current branch to GitHub"
         )
+    }
+
+    private func validateCheckout(_ repository: OpaquePointer, budget: GitHubCredentialPayload, target: OpaquePointer? = nil) throws {
+        var tree: OpaquePointer?
+        if let target {
+            try check(git_object_peel(&tree, target, GIT_OBJECT_TREE), operation: "inspect downloaded tree")
+        } else {
+            var head: OpaquePointer?
+            let headResult = git_repository_head(&head, repository)
+            if headResult == GIT_EUNBORNBRANCH.rawValue { return }
+            try check(headResult, operation: "inspect clone HEAD")
+            guard let head else { throw EngineError.resourceLimit }
+            defer { git_reference_free(head) }
+            try check(git_reference_peel(&tree, head, GIT_OBJECT_TREE), operation: "inspect clone tree")
+        }
+        guard let tree else { throw EngineError.resourceLimit }
+        defer { git_tree_free(tree) }
+        var odb: OpaquePointer?
+        try check(git_repository_odb(&odb, repository), operation: "inspect clone objects")
+        guard let odb else { throw EngineError.resourceLimit }
+        defer { git_odb_free(odb) }
+        let payload = Unmanaged.passRetained(CheckoutValidationPayload(odb: odb, budget: budget))
+        defer { payload.release() }
+        let result = git_tree_walk(tree, GIT_TREEWALK_PRE, { _, entry, rawPayload in
+            guard let entry, let rawPayload else { return GIT_EUSER.rawValue }
+            let payload = Unmanaged<CheckoutValidationPayload>.fromOpaque(rawPayload).takeUnretainedValue()
+            guard payload.budget.withinBudget() else { return GIT_EUSER.rawValue }
+            guard git_tree_entry_type(entry) == GIT_OBJECT_BLOB else { return 0 }
+            var size = 0
+            var type = GIT_OBJECT_ANY
+            let result = git_odb_read_header(&size, &type, payload.odb, git_tree_entry_id(entry))
+            guard result == 0 else { return result }
+            return payload.budget.withinBudget(checkoutSize: UInt64(size)) ? 0 : GIT_EUSER.rawValue
+        }, payload.toOpaque())
+        if result == GIT_EUSER.rawValue { throw EngineError.resourceLimit }
+        try check(result, operation: "validate checkout size")
+    }
+
+    private func validateRemotePointer(_ remote: OpaquePointer, expected: URL) throws {
+        guard let rawURL = git_remote_url(remote), let url = URL(string: String(cString: rawURL)) else {
+            throw EngineError.untrustedRemote
+        }
+        try validateRemote(url, expected: expected)
+        if let push = git_remote_pushurl(remote) {
+            guard let url = URL(string: String(cString: push)) else { throw EngineError.untrustedRemote }
+            try validateRemote(url, expected: expected)
+        }
+    }
+
+    private func validateOrigin(at localURL: URL, expected: URL) throws {
+        try validateRemote(expected, expected: expected)
+        var repo: OpaquePointer?
+        try check(git_repository_open(&repo, localURL.path), operation: "open repository")
+        guard let repo else { throw EngineError.untrustedRemote }
+        defer { git_repository_free(repo) }
+        var remote: OpaquePointer?
+        try check(git_remote_lookup(&remote, repo, "origin"), operation: "find origin")
+        guard let remote else { throw EngineError.untrustedRemote }
+        defer { git_remote_free(remote) }
+        try validateRemotePointer(remote, expected: expected)
+    }
+
+    private static let githubCertificate: git_transport_certificate_check_cb = { _, valid, hostname, _ in
+        guard valid == 1, let hostname, String(cString: hostname).lowercased() == "github.com" else {
+            return GIT_ECERTIFICATE.rawValue
+        }
+        return 0
+    }
+
+    private static let transferProgress: git_indexer_progress_cb = { stats, payload in
+        guard let stats, let payload else { return GIT_EUSER.rawValue }
+        let budget = Unmanaged<GitHubCredentialPayload>.fromOpaque(payload).takeUnretainedValue()
+        return budget.withinBudget(bytes: stats.pointee.received_bytes, objects: stats.pointee.total_objects)
+            ? 0 : GIT_EUSER.rawValue
+    }
+
+    private static let checkoutBudget: git_checkout_notify_cb = { _, _, _, _, _, payload in
+        guard let payload else { return GIT_EUSER.rawValue }
+        let budget = Unmanaged<GitHubCredentialPayload>.fromOpaque(payload).takeUnretainedValue()
+        return budget.withinBudget()
+            ? 0 : GIT_EUSER.rawValue
     }
 
     private func check(_ result: Int32, operation: String) throws {
@@ -284,7 +547,7 @@ actor GitEngine {
     }
 
     private static let githubCredentials: git_credential_acquire_cb = {
-        credential, _, _, allowedTypes, payload in
+        credential, rawURL, _, allowedTypes, payload in
         guard let payload,
               allowedTypes & GIT_CREDENTIAL_USERPASS_PLAINTEXT.rawValue != 0 else {
             return GIT_PASSTHROUGH.rawValue
@@ -293,7 +556,8 @@ actor GitEngine {
         let credentialPayload = Unmanaged<GitHubCredentialPayload>
             .fromOpaque(payload)
             .takeUnretainedValue()
-        guard let token = credentialPayload.takeToken() else {
+        guard let rawURL, let url = URL(string: String(cString: rawURL)),
+              let token = credentialPayload.takeToken(for: url) else {
             git_error_set_str(Int32(GIT_ERROR_HTTP.rawValue), "GitHub rejected the supplied credentials")
             return GIT_EAUTH.rawValue
         }
