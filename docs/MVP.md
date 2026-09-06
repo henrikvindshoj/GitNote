@@ -43,3 +43,9 @@ Use a small public fixture repository containing nested Markdown, front matter, 
 ## Explicit limitations
 
 The OAuth request uses the `repo` scope. Clone and push authentication use in-memory libgit2 credential callbacks and never write the OAuth token into clone URLs or Git configuration.
+
+## Web counterpart
+
+The React client now implements the same core browsing, writing, folders, change-review, and explicit-sync loop. Browser copies persist in IndexedDB; production application assets are cached for offline use. Its authentication is session-only token entry, and sync creates commits via GitHub’s API rather than a local Git engine.
+
+Web acceptance checks and browser-specific limitations are maintained in the [web README](../apps/web/README.md). Automated browser tests cover the workflow against a mocked GitHub API, including offline reopening and a mobile viewport. Apple Files integration and local Git clones remain native-only capabilities.
