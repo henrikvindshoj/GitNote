@@ -134,6 +134,54 @@ struct MarkdownFile: Identifiable, Hashable, Sendable {
     }
 }
 
+struct RepositoryDirectory: Identifiable, Hashable, Sendable {
+    let url: URL
+    let relativePath: String
+
+    var id: String { relativePath }
+    var name: String { url.lastPathComponent }
+
+    var parentPath: String {
+        let parent = (relativePath as NSString).deletingLastPathComponent
+        return parent == "." ? "" : parent
+    }
+}
+
+struct WorkspaceContents: Sendable {
+    let markdownFiles: [MarkdownFile]
+    let directories: [RepositoryDirectory]
+}
+
+struct DirectoryRelativePath: Equatable, Sendable {
+    let value: String
+
+    init?(_ input: String) {
+        let path = input.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !path.isEmpty,
+              !path.hasPrefix("/"),
+              !path.hasSuffix("/"),
+              !path.contains("\\"),
+              path.count <= 512 else {
+            return nil
+        }
+
+        let components = path.split(separator: "/", omittingEmptySubsequences: false).map(String.init)
+        let invalidCharacters = CharacterSet.controlCharacters
+            .union(CharacterSet(charactersIn: "<>:\"|?*"))
+        guard components.allSatisfy({ component in
+            !component.isEmpty
+                && component != "."
+                && component != ".."
+                && !component.hasPrefix(".")
+                && component.rangeOfCharacter(from: invalidCharacters) == nil
+        }) else {
+            return nil
+        }
+
+        value = components.joined(separator: "/")
+    }
+}
+
 struct MarkdownRelativePath: Equatable, Sendable {
     let value: String
 

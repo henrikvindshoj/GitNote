@@ -10,15 +10,7 @@ struct RepositoryView: View {
     @EnvironmentObject private var model: AppModel
     let workspace: Workspace
     @State private var section: Pane = .notes
-    @State private var search = ""
-    @State private var showingNewFile = false
     @State private var showingSync = false
-
-    private var files: [MarkdownFile] {
-        let files = model.filesByWorkspace[workspace.id] ?? []
-        guard !search.isEmpty else { return files }
-        return files.filter { $0.relativePath.localizedCaseInsensitiveContains(search) }
-    }
 
     private var changes: [RepositoryChange] {
         model.changesByWorkspace[workspace.id] ?? []
@@ -38,7 +30,7 @@ struct RepositoryView: View {
 
                 switch section {
                 case .notes:
-                    notesList
+                    RepositoryDirectoryContentsView(workspace: workspace, directoryPath: "")
                 case .changes:
                     changesList
                 }
@@ -50,9 +42,6 @@ struct RepositoryView: View {
                     Button("Sync Changes", systemImage: "arrow.triangle.2.circlepath") {
                         showingSync = true
                     }
-                    Button("New Markdown File", systemImage: "doc.badge.plus") {
-                        showingNewFile = true
-                    }
                     ShareLink(item: model.repositoryURL(for: workspace)) {
                         Label("Share working copy", systemImage: "square.and.arrow.up")
                     }
@@ -61,48 +50,17 @@ struct RepositoryView: View {
                     }
                 }
             }
+            .navigationDestination(for: RepositoryDirectory.self) { directory in
+                RepositoryDirectoryContentsView(
+                    workspace: workspace,
+                    directoryPath: directory.relativePath
+                )
+                .navigationTitle(directory.name)
+            }
         }
         .task(id: workspace.id) { await model.refresh(workspace) }
-        .sheet(isPresented: $showingNewFile) {
-            NewMarkdownFileView(workspace: workspace)
-        }
         .sheet(isPresented: $showingSync) {
             SyncChangesView(workspace: workspace, changeCount: changes.count)
-        }
-    }
-
-    private var notesList: some View {
-        List(files) { file in
-            NavigationLink {
-                MarkdownEditorView(workspace: workspace, file: file)
-            } label: {
-                HStack(spacing: 12) {
-                    Image(systemName: "doc.richtext")
-                        .foregroundStyle(.indigo)
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(file.name)
-                        if let folder = file.folder {
-                            Text(folder)
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                }
-            }
-        }
-        .searchable(text: $search, prompt: "Search Markdown files")
-        .overlay {
-            if files.isEmpty {
-                if search.isEmpty {
-                    ContentUnavailableView(
-                        "No Markdown files",
-                        systemImage: "doc",
-                        description: Text("This working copy has no .md or .markdown files.")
-                    )
-                } else {
-                    ContentUnavailableView.search(text: search)
-                }
-            }
         }
     }
 
@@ -145,6 +103,82 @@ struct RepositoryView: View {
         case .modified, .renamed, .typeChanged: .orange
         case .deleted, .conflicted, .unreadable: .red
         case .unknown: .secondary
+        }
+    }
+}
+
+private struct RepositoryDirectoryContentsView: View {
+    @EnvironmentObject private var model: AppModel
+    let workspace: Workspace
+    let directoryPath: String
+    @State private var search = ""
+    @State private var showingNewFile = false
+    @State private var showingNewDirectory = false
+
+    private var files: [MarkdownFile] {
+        let files = (model.filesByWorkspace[workspace.id] ?? []).filter {
+            ($0.folder ?? "") == directoryPath
+        }
+        guard !search.isEmpty else { return files }
+        return files.filter { $0.name.localizedCaseInsensitiveContains(search) }
+    }
+
+    private var directories: [RepositoryDirectory] {
+        let directories = (model.directoriesByWorkspace[workspace.id] ?? []).filter {
+            $0.parentPath == directoryPath
+        }
+        guard !search.isEmpty else { return directories }
+        return directories.filter { $0.name.localizedCaseInsensitiveContains(search) }
+    }
+
+    var body: some View {
+        List {
+            ForEach(directories) { directory in
+                NavigationLink(value: directory) {
+                    Label(directory.name, systemImage: "folder.fill")
+                        .foregroundStyle(.primary)
+                }
+            }
+
+            ForEach(files) { file in
+                NavigationLink {
+                    MarkdownEditorView(workspace: workspace, file: file)
+                } label: {
+                    Label(file.name, systemImage: "doc.richtext")
+                }
+            }
+        }
+        .searchable(text: $search, prompt: "Search this directory")
+        .overlay {
+            if files.isEmpty, directories.isEmpty {
+                if search.isEmpty {
+                    ContentUnavailableView(
+                        directoryPath.isEmpty ? "No notes or directories" : "Empty directory",
+                        systemImage: "folder",
+                        description: Text("Create a directory or Markdown file here to get started.")
+                    )
+                } else {
+                    ContentUnavailableView.search(text: search)
+                }
+            }
+        }
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Menu("Create", systemImage: "plus") {
+                    Button("New Markdown File", systemImage: "doc.badge.plus") {
+                        showingNewFile = true
+                    }
+                    Button("New Directory", systemImage: "folder.badge.plus") {
+                        showingNewDirectory = true
+                    }
+                }
+            }
+        }
+        .sheet(isPresented: $showingNewFile) {
+            NewMarkdownFileView(workspace: workspace, parentDirectory: directoryPath)
+        }
+        .sheet(isPresented: $showingNewDirectory) {
+            NewDirectoryView(workspace: workspace, parentDirectory: directoryPath)
         }
     }
 }
@@ -246,23 +280,28 @@ private struct NewMarkdownFileView: View {
     @EnvironmentObject private var model: AppModel
     @Environment(\.dismiss) private var dismiss
     let workspace: Workspace
+    let parentDirectory: String
     @State private var path = ""
     @State private var contents = ""
     @State private var isCreating = false
 
     private var normalizedPath: MarkdownRelativePath? {
-        MarkdownRelativePath(path)
+        MarkdownRelativePath(repositoryRelativePath)
+    }
+
+    private var repositoryRelativePath: String {
+        parentDirectory.isEmpty ? path : "\(parentDirectory)/\(path)"
     }
 
     var body: some View {
         NavigationStack {
             Form {
                 Section {
-                    TextField("notes/idea.md", text: $path)
+                    TextField("idea.md", text: $path)
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
                 } header: {
-                    Text("Repository-relative path")
+                    Text(parentDirectory.isEmpty ? "Repository-relative path" : "File name")
                 } footer: {
                     if let normalizedPath {
                         Text("Creates \(normalizedPath.value)")
@@ -295,7 +334,70 @@ private struct NewMarkdownFileView: View {
     private func create() {
         isCreating = true
         Task {
-            if await model.createMarkdownFile(path: path, contents: contents, in: workspace) != nil {
+            if await model.createMarkdownFile(
+                path: repositoryRelativePath,
+                contents: contents,
+                in: workspace
+            ) != nil {
+                dismiss()
+            }
+            isCreating = false
+        }
+    }
+}
+
+private struct NewDirectoryView: View {
+    @EnvironmentObject private var model: AppModel
+    @Environment(\.dismiss) private var dismiss
+    let workspace: Workspace
+    let parentDirectory: String
+    @State private var name = ""
+    @State private var isCreating = false
+
+    private var repositoryRelativePath: String {
+        parentDirectory.isEmpty ? name : "\(parentDirectory)/\(name)"
+    }
+
+    private var normalizedPath: DirectoryRelativePath? {
+        DirectoryRelativePath(repositoryRelativePath)
+    }
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section {
+                    TextField("Directory name", text: $name)
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+                } header: {
+                    Text("New directory")
+                } footer: {
+                    if let normalizedPath {
+                        Text("Creates \(normalizedPath.value). Empty directories remain local until they contain a committed file.")
+                    } else {
+                        Text("Use a safe name without hidden or parent path components.")
+                    }
+                }
+            }
+            .navigationTitle("New Directory")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Create") { create() }
+                        .disabled(normalizedPath == nil || isCreating)
+                }
+            }
+        }
+        .interactiveDismissDisabled(isCreating)
+    }
+
+    private func create() {
+        isCreating = true
+        Task {
+            if await model.createDirectory(path: repositoryRelativePath, in: workspace) != nil {
                 dismiss()
             }
             isCreating = false

@@ -1,6 +1,7 @@
 import XCTest
 import SwiftUI
 import UIKit
+import Network
 @testable import GitNote
 
 @MainActor
@@ -80,6 +81,59 @@ final class MarkdownRelativePathTests: XCTestCase {
         XCTAssertNil(MarkdownRelativePath("notes//idea.md"))
         XCTAssertNil(MarkdownRelativePath("notes/idea.txt"))
         XCTAssertNil(MarkdownRelativePath(".hidden.md"))
+    }
+}
+
+final class DirectoryRelativePathTests: XCTestCase {
+    func testAcceptsNestedDirectoryPath() {
+        XCTAssertEqual(DirectoryRelativePath("Notes/Research")?.value, "Notes/Research")
+    }
+
+    func testRejectsUnsafeDirectoryPaths() {
+        XCTAssertNil(DirectoryRelativePath("../Secrets"))
+        XCTAssertNil(DirectoryRelativePath("/Absolute"))
+        XCTAssertNil(DirectoryRelativePath("Notes//Research"))
+        XCTAssertNil(DirectoryRelativePath(".git"))
+        XCTAssertNil(DirectoryRelativePath("Notes/"))
+    }
+}
+
+final class WorkspaceDirectoryTests: XCTestCase {
+    func testCreatesAndDiscoversNestedAndEmptyDirectories() async throws {
+        let repository = GitHubRepository(
+            id: Int64.random(in: 1...Int64.max),
+            name: "directory-test",
+            fullName: "tests/directory-test",
+            owner: GitHubRepository.Owner(login: "tests"),
+            cloneURL: URL(string: "https://github.com/tests/directory-test.git")!,
+            defaultBranch: "main",
+            isPrivate: true,
+            isFork: false,
+            summary: nil,
+            pushedAt: nil
+        )
+        let workspace = Workspace(
+            repository: repository,
+            localFolderName: "GitNoteDirectoryTests-\(UUID().uuidString)"
+        )
+        let root = WorkspacePaths.repositoryURL(for: workspace)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let service = WorkspaceFileService()
+        let directoryPath = try XCTUnwrap(DirectoryRelativePath("Notes/Empty"))
+        _ = try await service.createDirectory(at: directoryPath, in: workspace)
+        let filePath = try XCTUnwrap(MarkdownRelativePath("Notes/Idea.md"))
+        _ = try await service.createMarkdownFile(
+            at: filePath,
+            contents: "# Idea\n",
+            in: workspace
+        )
+
+        let contents = try await service.contents(in: workspace)
+        XCTAssertEqual(contents.directories.map(\.relativePath), ["Notes", "Notes/Empty"])
+        XCTAssertEqual(contents.directories.map(\.parentPath), ["", "Notes"])
+        XCTAssertEqual(contents.markdownFiles.map(\.relativePath), ["Notes/Idea.md"])
     }
 }
 
@@ -298,6 +352,55 @@ final class GitHubOAuthClientTests: XCTestCase {
 
 @MainActor
 final class GitEngineTests: XCTestCase {
+    func testSyncReportsRejectedHTTPCredentialsAndPreservesCommit() async throws {
+        let listener = try NWListener(using: .tcp, on: .any)
+        let ready = expectation(description: "HTTP server ready")
+        listener.stateUpdateHandler = { state in
+            if case .ready = state { ready.fulfill() }
+        }
+        listener.newConnectionHandler = { connection in
+            connection.start(queue: .global())
+            connection.receive(minimumIncompleteLength: 1, maximumLength: 65_536) { _, _, _, _ in
+                let response = Data((
+                    "HTTP/1.1 401 Unauthorized\r\n"
+                    + "WWW-Authenticate: Basic realm=\"GitNote test\"\r\n"
+                    + "Content-Length: 0\r\nConnection: close\r\n\r\n"
+                ).utf8)
+                connection.send(content: response, completion: .contentProcessed { _ in
+                    connection.cancel()
+                })
+            }
+        }
+        listener.start(queue: .global())
+        defer { listener.cancel() }
+        await fulfillment(of: [ready], timeout: 5)
+        let port = try XCTUnwrap(listener.port)
+        let remote = try XCTUnwrap(URL(string: "http://127.0.0.1:\(port.rawValue)/repo.git"))
+        let root = FileManager.default.temporaryDirectory
+            .appending(path: "GitNoteAuthTests-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: root) }
+        let engine = GitEngine()
+        try await engine.initializeRepository(at: root)
+        try await engine.addOrigin(to: root, remoteURL: remote)
+        try "# Keep this note\n".write(
+            to: root.appending(path: "Note.md"), atomically: true, encoding: .utf8
+        )
+        do {
+            _ = try await engine.syncAll(
+                at: root, message: "Save note", authorName: "Tests",
+                authorEmail: "tests@example.com", token: "rejected-test-token"
+            )
+            XCTFail("Expected authentication to fail")
+        } catch {
+            XCTAssertTrue(error.localizedDescription.contains("authentication failed"), error.localizedDescription)
+            XCTAssertFalse(error.localizedDescription.contains("followRedirects"))
+        }
+        let commitID = try await engine.currentCommitID(at: root)
+        XCTAssertEqual(commitID.count, 40)
+        let changes = try await engine.changes(at: root)
+        XCTAssertTrue(changes.isEmpty)
+    }
+
     func testCloneCreatesWorkingCopyWithCredentialCapablePath() async throws {
         let root = FileManager.default.temporaryDirectory
             .appending(path: "GitNoteCloneTests-\(UUID().uuidString)", directoryHint: .isDirectory)

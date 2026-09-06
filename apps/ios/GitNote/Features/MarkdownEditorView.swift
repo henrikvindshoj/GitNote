@@ -35,7 +35,14 @@ struct MarkdownEditorView: View {
                 ProgressView("Opening note…")
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
-                RichMarkdownDocumentView(markdown: $text, command: $editorCommand)
+                RichMarkdownDocumentView(
+                    markdown: $text,
+                    command: $editorCommand,
+                    imageContext: MarkdownImageContext(
+                        repositoryRoot: model.repositoryURL(for: workspace),
+                        documentURL: file.url
+                    )
+                )
                     .background(Color(uiColor: .systemBackground))
             }
         }

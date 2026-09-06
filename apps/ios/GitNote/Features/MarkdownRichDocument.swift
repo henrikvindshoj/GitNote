@@ -7,9 +7,48 @@ struct MarkdownEditorCommand: Equatable {
     var destination: String? = nil
 }
 
+struct MarkdownImageContext: Equatable {
+    let repositoryRoot: URL
+    let documentURL: URL
+
+    func localFileURL(for destination: String) -> URL? {
+        var path = destination.trimmingCharacters(in: .whitespacesAndNewlines)
+        if path.hasPrefix("<"), path.hasSuffix(">") {
+            path.removeFirst()
+            path.removeLast()
+        }
+        guard !path.isEmpty,
+              URLComponents(string: path)?.scheme == nil,
+              !path.hasPrefix("//") else {
+            return nil
+        }
+
+        path = String(path.split(separator: "#", maxSplits: 1, omittingEmptySubsequences: false)[0])
+        path = String(path.split(separator: "?", maxSplits: 1, omittingEmptySubsequences: false)[0])
+        path = path.removingPercentEncoding ?? path
+
+        let root = repositoryRoot.standardizedFileURL.resolvingSymlinksInPath()
+        let base = documentURL.deletingLastPathComponent()
+        let candidate = (path.hasPrefix("/")
+            ? root.appending(path: String(path.dropFirst()))
+            : base.appending(path: path))
+            .standardizedFileURL
+            .resolvingSymlinksInPath()
+        guard candidate.path.hasPrefix(root.path + "/") else { return nil }
+
+        var isDirectory = ObjCBool(false)
+        guard FileManager.default.fileExists(atPath: candidate.path, isDirectory: &isDirectory),
+              !isDirectory.boolValue else {
+            return nil
+        }
+        return candidate
+    }
+}
+
 struct RichMarkdownDocumentView: UIViewRepresentable {
     @Binding var markdown: String
     @Binding var command: MarkdownEditorCommand?
+    var imageContext: MarkdownImageContext? = nil
 
     func makeCoordinator() -> Coordinator {
         Coordinator(parent: self)
@@ -27,7 +66,7 @@ struct RichMarkdownDocumentView: UIViewRepresentable {
         textView.smartInsertDeleteType = .no
         textView.textContainerInset = UIEdgeInsets(top: 18, left: 16, bottom: 36, right: 16)
         textView.accessibilityLabel = "Markdown document editor"
-        textView.attributedText = MarkdownRichCodec.decode(markdown)
+        textView.attributedText = MarkdownRichCodec.decode(markdown, imageContext: imageContext)
         context.coordinator.lastMarkdown = markdown
         return textView
     }
@@ -38,7 +77,7 @@ struct RichMarkdownDocumentView: UIViewRepresentable {
 
         if markdown != coordinator.lastMarkdown {
             let selectedRange = textView.selectedRange
-            textView.attributedText = MarkdownRichCodec.decode(markdown)
+            textView.attributedText = MarkdownRichCodec.decode(markdown, imageContext: imageContext)
             textView.selectedRange = MarkdownRichCommandApplier.clamp(
                 selectedRange,
                 to: textView.textStorage.length
@@ -141,6 +180,7 @@ struct RichMarkdownDocumentView: UIViewRepresentable {
     }
 }
 
+@MainActor
 enum MarkdownRichCodec {
     private enum Block {
         case heading(Int, String)
@@ -152,10 +192,13 @@ enum MarkdownRichCodec {
         case rule
     }
 
-    static func decode(_ markdown: String) -> NSAttributedString {
+    static func decode(
+        _ markdown: String,
+        imageContext: MarkdownImageContext? = nil
+    ) -> NSAttributedString {
         let output = NSMutableAttributedString()
         for block in parseBlocks(markdown) {
-            append(block, to: output)
+            append(block, to: output, imageContext: imageContext)
         }
         if output.length > 0, output.string.hasSuffix("\n") {
             output.deleteCharacters(in: NSRange(location: output.length - 1, length: 1))
@@ -307,18 +350,22 @@ enum MarkdownRichCodec {
         return blocks
     }
 
-    private static func append(_ block: Block, to output: NSMutableAttributedString) {
+    private static func append(
+        _ block: Block,
+        to output: NSMutableAttributedString,
+        imageContext: MarkdownImageContext?
+    ) {
         switch block {
         case .heading(let level, let content):
-            let rich = decodeInline(content)
+            let rich = decodeInline(content, imageContext: imageContext)
             markStructuralTrait(.traitBold, key: .gitNoteStructuralBold, in: rich)
             applyBaseFont(headingFont(level), forceBold: true, to: rich)
             append(rich, kind: "heading:\(level)", to: output)
         case .paragraph(let content):
-            append(decodeInline(content), kind: "paragraph", to: output)
+            append(decodeInline(content, imageContext: imageContext), kind: "paragraph", to: output)
         case .unordered(let content):
             append(
-                decodeInline(content),
+                decodeInline(content, imageContext: imageContext),
                 kind: "unordered",
                 marker: "• ",
                 markerColor: .tintColor,
@@ -326,14 +373,14 @@ enum MarkdownRichCodec {
             )
         case .ordered(let number, let content):
             append(
-                decodeInline(content),
+                decodeInline(content, imageContext: imageContext),
                 kind: "ordered",
                 marker: "\(number). ",
                 markerColor: .tintColor,
                 to: output
             )
         case .quote(let content):
-            let rich = decodeInline(content)
+            let rich = decodeInline(content, imageContext: imageContext)
             markStructuralTrait(.traitItalic, key: .gitNoteStructuralItalic, in: rich)
             rich.addAttributes(
                 [
@@ -413,7 +460,53 @@ enum MarkdownRichCodec {
         ))
     }
 
-    private static func decodeInline(_ markdown: String) -> NSMutableAttributedString {
+    private static func decodeInline(
+        _ markdown: String,
+        imageContext: MarkdownImageContext?
+    ) -> NSMutableAttributedString {
+        guard let expression = try? NSRegularExpression(
+            pattern: #"!\[([^\]]*)\]\((<[^>]+>|[^\s\)]+)(?:\s+(?:"[^"]*"|'[^']*'|\([^\)]*\)))?\)"#
+        ) else {
+            return decodeStandardInline(markdown)
+        }
+
+        let source = markdown as NSString
+        let matches = expression.matches(
+            in: markdown,
+            range: NSRange(location: 0, length: source.length)
+        )
+        guard !matches.isEmpty else { return decodeStandardInline(markdown) }
+
+        let output = NSMutableAttributedString()
+        var location = 0
+        for match in matches {
+            if match.range.location > location {
+                output.append(decodeStandardInline(source.substring(
+                    with: NSRange(location: location, length: match.range.location - location)
+                )))
+            }
+
+            let altMarkdown = source.substring(with: match.range(at: 1))
+            var destination = source.substring(with: match.range(at: 2))
+            if destination.hasPrefix("<"), destination.hasSuffix(">") {
+                destination.removeFirst()
+                destination.removeLast()
+            }
+            appendImage(
+                altMarkdown: altMarkdown,
+                destination: destination,
+                imageContext: imageContext,
+                to: output
+            )
+            location = NSMaxRange(match.range)
+        }
+        if location < source.length {
+            output.append(decodeStandardInline(source.substring(from: location)))
+        }
+        return output
+    }
+
+    private static func decodeStandardInline(_ markdown: String) -> NSMutableAttributedString {
         guard let parsed = try? AttributedString(
             markdown: markdown,
             options: .init(interpretedSyntax: .inlineOnlyPreservingWhitespace)
@@ -456,6 +549,45 @@ enum MarkdownRichCodec {
         return output
     }
 
+    private static func appendImage(
+        altMarkdown: String,
+        destination: String,
+        imageContext: MarkdownImageContext?,
+        to output: NSMutableAttributedString
+    ) {
+        let altText = decodeStandardInline(altMarkdown).string
+        if let fileURL = imageContext?.localFileURL(for: destination),
+           let image = UIImage(contentsOfFile: fileURL.path) {
+            let attachment = NSTextAttachment()
+            attachment.image = image
+            let maximumWidth = min(max(UIScreen.main.bounds.width - 64, 240), 1_000)
+            let scale = min(1, maximumWidth / max(image.size.width, 1))
+            attachment.bounds = CGRect(
+                x: 0,
+                y: -4,
+                width: image.size.width * scale,
+                height: image.size.height * scale
+            )
+            let rendered = NSMutableAttributedString(attachment: attachment)
+            rendered.addAttributes(
+                [
+                    .gitNoteImageURL: destination,
+                    .gitNoteImageAltText: altText
+                ],
+                range: NSRange(location: 0, length: rendered.length)
+            )
+            output.append(rendered)
+            return
+        }
+
+        let fallback = altText.isEmpty ? "image" : altText
+        var attributes = bodyAttributes
+        attributes[.gitNoteImageURL] = destination
+        attributes[.gitNoteImageAltText] = altText
+        attributes[.foregroundColor] = UIColor.secondaryLabel
+        output.append(NSAttributedString(string: fallback, attributes: attributes))
+    }
+
     private static func encodeInline(
         _ content: NSAttributedString,
         ignoringBold: Bool = false,
@@ -467,6 +599,12 @@ enum MarkdownRichCodec {
             options: []
         ) { attributes, range, _ in
             let raw = (content.string as NSString).substring(with: range)
+            if let imageURL = attributes[.gitNoteImageURL] as? String {
+                let altText = attributes[.gitNoteImageAltText] as? String
+                    ?? (raw == "\u{fffc}" ? "" : raw)
+                markdown += "![\(escapeInline(altText))](\(imageURL))"
+                return
+            }
             if attributes[.gitNoteInlineCode] as? Bool == true {
                 markdown += "`\(raw.replacingOccurrences(of: "`", with: "\\`"))`"
                 return
@@ -487,9 +625,6 @@ enum MarkdownRichCodec {
             }
             if let link = attributes[.link] as? URL {
                 value = "[\(value)](\(link.absoluteString))"
-            }
-            if let imageURL = attributes[.gitNoteImageURL] as? String {
-                value = "![\(escapeInline(raw))](\(imageURL))"
             }
             markdown += value
         }
@@ -1065,6 +1200,7 @@ extension NSAttributedString.Key {
     static let gitNoteMarker = NSAttributedString.Key("GitNoteMarkdownMarker")
     static let gitNoteInlineCode = NSAttributedString.Key("GitNoteMarkdownInlineCode")
     static let gitNoteImageURL = NSAttributedString.Key("GitNoteMarkdownImageURL")
+    static let gitNoteImageAltText = NSAttributedString.Key("GitNoteMarkdownImageAltText")
     static let gitNoteStructuralBold = NSAttributedString.Key("GitNoteMarkdownStructuralBold")
     static let gitNoteStructuralItalic = NSAttributedString.Key("GitNoteMarkdownStructuralItalic")
 }

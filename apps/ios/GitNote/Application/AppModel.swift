@@ -7,6 +7,7 @@ final class AppModel: ObservableObject {
     @Published private(set) var githubUser: GitHubUser?
     @Published private(set) var remoteRepositories: [GitHubRepository] = []
     @Published private(set) var filesByWorkspace: [Workspace.ID: [MarkdownFile]] = [:]
+    @Published private(set) var directoriesByWorkspace: [Workspace.ID: [RepositoryDirectory]] = [:]
     @Published private(set) var changesByWorkspace: [Workspace.ID: [RepositoryChange]] = [:]
     @Published private(set) var hasStoredToken: Bool
     @Published private(set) var githubDeviceAuthorization: GitHubDeviceAuthorization?
@@ -195,9 +196,11 @@ final class AppModel: ObservableObject {
 
     func refresh(_ workspace: Workspace) async {
         do {
-            async let scannedFiles = files.markdownFiles(in: workspace)
+            async let scannedContents = files.contents(in: workspace)
             async let changes = git.changes(at: WorkspacePaths.repositoryURL(for: workspace))
-            filesByWorkspace[workspace.id] = try await scannedFiles
+            let contents = try await scannedContents
+            filesByWorkspace[workspace.id] = contents.markdownFiles
+            directoriesByWorkspace[workspace.id] = contents.directories
             changesByWorkspace[workspace.id] = try await changes
         } catch {
             present(error)
@@ -254,6 +257,22 @@ final class AppModel: ObservableObject {
         }
     }
 
+    func createDirectory(path input: String, in workspace: Workspace) async -> RepositoryDirectory? {
+        guard let relativePath = DirectoryRelativePath(input) else {
+            errorMessage = "Enter a safe repository-relative directory path without hidden or parent components."
+            return nil
+        }
+
+        do {
+            let directory = try await files.createDirectory(at: relativePath, in: workspace)
+            await refresh(workspace)
+            return directory
+        } catch {
+            present(error)
+            return nil
+        }
+    }
+
     func sync(
         _ workspace: Workspace,
         message rawMessage: String,
@@ -299,6 +318,7 @@ final class AppModel: ObservableObject {
             try await files.remove(workspace)
             workspaces.removeAll { $0.id == workspace.id }
             filesByWorkspace[workspace.id] = nil
+            directoriesByWorkspace[workspace.id] = nil
             changesByWorkspace[workspace.id] = nil
             try metadata.save(workspaces)
             if selectedWorkspaceID == workspace.id {
