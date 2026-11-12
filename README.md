@@ -2,7 +2,7 @@
 
 **Your Markdown notes, backed by GitHub.**
 
-GitNote is a local-first notes app for people who keep Markdown files in GitHub repositories. It gives you a friendly writing experience on iPhone, iPad, and the web while keeping your notes as ordinary `.md` files that you own and can use with other tools.
+GitNote is a local-first notes app for people who keep Markdown files in GitHub repositories. It gives you a friendly writing experience on iPhone, iPad, Android, and the web while keeping your notes as ordinary `.md` files that you own and can use with other tools.
 
 ## What GitNote can do for you
 
@@ -10,17 +10,17 @@ GitNote is a local-first notes app for people who keep Markdown files in GitHub 
 - **Write without Markdown getting in the way.** Edit notes in a Word-like view with formatting tools for headings, bold, italic, lists, quotes, links, code, and more.
 - **Work offline.** Read and edit cloned notes without a network connection.
 - **Organize with directories.** Browse nested folders and create directories or Markdown files wherever they belong.
-- **Stay in control of your files.** Notes stay as regular Markdown in GitHub. iOS keeps real local Git repositories; the web app keeps offline browser copies with Markdown and JSON export.
+- **Stay in control of your files.** Notes stay as regular Markdown in GitHub. iOS and Android keep real local Git repositories; the web app keeps offline browser copies with Markdown and JSON export.
 - **See what changed.** GitNote shows when a working copy has uncommitted changes and lets you inspect the changed files.
-- **Sync with GitHub.** On iOS, sync downloads newer commits into a clean copy and uploads local changes when the histories are compatible. Web sync uploads changes through the GitHub API.
+- **Sync with GitHub.** On iOS and Android, sync downloads newer commits into a clean copy and uploads compatible local changes. Web sync uploads changes through the GitHub API.
 - **Use other editors too on iOS.** Working copies are exposed through Apple's Files app so compatible Markdown editors can access the same files.
 - **Inspect the source when needed.** Raw Markdown is still available as a secondary view, while the formatted editor remains the default.
 
 ## A simple workflow
 
-1. Connect your GitHub account (a fine-grained token on iOS or the web; public-repository OAuth is also available on iOS).
+1. Connect your GitHub account (a fine-grained token on every client; public-repository OAuth is also available on iOS and Android).
 2. Choose a public or private Markdown repository, or enter its `owner/repository` address.
-3. Clone it on iOS or download an offline copy in your browser.
+3. Clone it on iOS or Android, or download an offline copy in your browser.
 4. Browse, create, and edit notes—even while offline.
 5. Review the working copy's changes and sync them back to GitHub.
 
@@ -32,8 +32,10 @@ GitNote is designed for writers, developers, researchers, and knowledge workers 
 
 ## Current availability
 
-GitNote has an early iPhone/iPad MVP and a React web app in [`apps/web`](apps/web). Both support public and authorized private GitHub repositories, offline notes, rich/source editing, folders, change review, and explicit sync. The web app stores notes in IndexedDB and commits through the GitHub API; its browser-specific limits are documented in the [web guide](apps/web/README.md). iOS sync can now download newer commits into a clean working copy. Web pulling, branch management, and merge-conflict resolution are not yet available.
+GitNote has early native iPhone/iPad and Android MVPs plus a React web app. All three support public and authorized private GitHub repositories, offline notes, rich/source editing, folders, change review, and explicit sync. Android lives in [`apps/android`](apps/android), and its setup and storage boundaries are documented in the [Android guide](apps/android/README.md). The web app stores notes in IndexedDB and commits through the GitHub API; its browser-specific limits are documented in the [web guide](apps/web/README.md). Web pulling, branch management, and automatic merge-conflict resolution are not yet available.
 
 To run the web app with Node.js 22.12+: `cd apps/web && npm ci && npm run dev`.
+
+To run Android, open `apps/android` in Android Studio and launch the `app` configuration on an emulator, or use `cd apps/android && ./gradlew installDebug`.
 
 For build instructions and technical details, see the [development guide](docs/DEVELOPMENT.md). The [project plan](PLAN.md) describes the longer-term direction.

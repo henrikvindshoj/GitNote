@@ -1,0 +1,7 @@
+-dontwarn org.bouncycastle.**
+-dontwarn org.apache.sshd.**
+-dontwarn javax.management.**
+-dontwarn java.lang.ProcessHandle
+-dontwarn java.lang.management.**
+-dontwarn org.ietf.jgss.**
+-keep class org.eclipse.jgit.** { *; }

@@ -50,3 +50,9 @@ The OAuth request uses the `repo` scope. Clone and push authentication use in-me
 The React client now implements the same core browsing, writing, folders, change-review, and explicit-sync loop. Browser copies persist in IndexedDB; production application assets are cached for offline use. Its authentication is session-only token entry, and sync creates commits via GitHub’s API rather than a local Git engine.
 
 Web acceptance checks and browser-specific limitations are maintained in the [web README](../apps/web/README.md). Automated browser tests cover the workflow against a mocked GitHub API, including offline reopening and a mobile viewport. Apple Files integration and local Git clones remain native-only capabilities.
+
+## Android counterpart
+
+The native Android MVP implements the same repository, offline-editing, dirty-state, and optimistic-sync loop with Jetpack Compose and JGit. It supports fine-grained tokens and GitHub OAuth device login, keeps credentials under Android Keystore, and offers the same rich-first Markdown editor with secondary source inspection.
+
+Android working copies are real Git repositories, but they remain in app-private storage. The MVP exports a ZIP through the system document picker; it does not yet expose a live filesystem-backed vault to Obsidian. Device tests cover launch, Keystore round trips, a real public clone and fetch, note creation, and dirty detection on a Pixel emulator.

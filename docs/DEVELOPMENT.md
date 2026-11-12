@@ -7,7 +7,7 @@ GitNote is a local-first client for Markdown repositories hosted on GitHub. The 
 ```text
 apps/
   ios/                 Native SwiftUI MVP
-  android/             Reserved Android application boundary
+  android/             Native Kotlin / Jetpack Compose MVP
   web/                 React / TypeScript browser client
 services/
   api/                 Optional future backend services
@@ -45,6 +45,24 @@ Use `npm test` for unit tests and `npm run build` for type checking and the prod
 
 The web client uses React, Tiptap, IndexedDB, and the GitHub REST API. Its production build caches the application shell for offline reopening. It needs no backend or OAuth client ID; private repositories and sync use a token held in memory for the current session. See the [web README](../apps/web/README.md) for authentication, deployment, supported workflows, and browser limits.
 
+## Run the Android MVP
+
+Requirements: Android Studio 2026.1 or newer, Android SDK 37, and Android 8.0/API 26 or newer.
+
+1. Open `apps/android` in Android Studio.
+2. Select the `app` run configuration and a Pixel emulator or Android device.
+3. Build and run.
+4. Add a public repository directly, or connect GitHub using device login or a selected-repository fine-grained token.
+
+Command-line checks are available from `apps/android`:
+
+```sh
+./gradlew test assembleDebug
+./gradlew connectedDebugAndroidTest
+```
+
+Android uses Compose, JGit, app-private storage, Android Keystore, and a rich editor that imports and exports Markdown. The connected-device suite validates startup, Keystore storage, a real public clone, fetch, note creation, and dirty detection. See the [Android guide](../apps/android/README.md) for the external-editor boundary.
+
 ## Current iOS MVP boundary
 
 Implemented:
@@ -62,7 +80,7 @@ Not yet implemented:
 
 - Automatic merging/rebasing, branch management, and merge conflict resolution. Diverged history and dirty copies behind GitHub are preserved and require reconciliation in another Git client.
 - Guaranteed direct vault adoption by Obsidian on every Apple platform.
-- Android or backend runtime code.
+- Backend runtime code.
 
 See the [MVP acceptance criteria](MVP.md) and the [longer-term project plan](../PLAN.md).
 
@@ -70,6 +88,8 @@ See the [MVP acceptance criteria](MVP.md) and the [longer-term project plan](../
 
 iOS recommends fine-grained tokens limited to selected repositories. Optional OAuth requests `public_repo`; previous broad grants must be revoked in GitHub settings. Credentials use unlocked-device-only Keychain storage, an exact GitHub repository destination check, normal certificate validation, and no authenticated redirects. Symlink components are rejected during file access. Notes are limited to 2 MB; clones are limited to 100 MB transferred and checked out, 20,000 objects, 10,000 files, and 20 MB per checked-out file. Images are bounded before thumbnail decoding. Clone cancellation and the 120-second deadline are checked at libgit2 progress boundaries.
 
-CI runs signed simulator XCTest, browser tests, and npm advisory checks. The security assessment and remediation status are in [the security report](security/ASSESSMENT-2026-09-06.md).
+Android applies the same exact-remote and safe-path boundaries. OAuth and personal tokens are encrypted with an AES-GCM key held in Android Keystore; repository data stays in app-private storage and authenticated redirects are disabled.
+
+CI runs signed iOS simulator XCTest, Android unit/build checks, browser tests, and npm advisory checks. The security assessment and remediation status are in [the security report](security/ASSESSMENT-2026-09-06.md).
 
 The web app uses a fine-grained token with repository Contents access, stored only in memory. Downloaded notes, including private notes, stay in IndexedDB after disconnecting. See [web authentication](GITHUB_OAUTH.md#web-authentication).

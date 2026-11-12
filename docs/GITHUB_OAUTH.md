@@ -1,14 +1,14 @@
 # GitHub authentication setup
 
-## Recommended: selected-repository tokens on iOS
+## Recommended: selected-repository tokens on iOS and Android
 
-In Account, create a fine-grained personal access token, select only the required repositories, grant Contents read/write (or read-only for downloads), and set an expiration date. Paste it into the secure field and choose **Connect selected repositories**. No OAuth client ID is needed for this option. GitNote validates the token with GitHub and stores it using `WhenUnlockedThisDeviceOnly` Keychain accessibility. This is the recommended path for public and private notebooks.
+In Account, create a fine-grained personal access token, select only the required repositories, grant Contents read/write (or read-only for downloads), and set an expiration date. Paste it into the secure field and choose **Connect selected repositories**. No OAuth client ID is needed for this option. GitNote validates the token with GitHub. iOS stores it using `WhenUnlockedThisDeviceOnly` Keychain accessibility; Android encrypts it with an AES-GCM key held by Android Keystore. This is the recommended path for public and private notebooks.
 
 Disconnect removes the local credential; it does not revoke it on GitHub or delete downloaded notes. Account contains links to token and OAuth settings for revocation. Existing broad OAuth grants must be revoked there before reauthorizing if you want to remove their old permissions.
 
 ## Optional: OAuth for public repositories
 
-The iOS app uses GitHub's OAuth device flow. The app opens GitHub in the browser, displays a one-time code, polls at GitHub's required interval, validates the resulting user, and stores the access token in Keychain. No client secret is embedded in the app.
+The iOS and Android apps use GitHub's OAuth device flow. The app opens GitHub in the browser, displays a one-time code, polls at GitHub's required interval, validates the resulting user, and stores the access token in platform-protected credential storage. No client secret is embedded in either app.
 
 ## Register GitNote
 
@@ -28,6 +28,12 @@ The iOS app uses GitHub's OAuth device flow. The app opens GitHub in the browser
 5. Build and run, open **Account**, and choose **Sign in with GitHub**.
 
 The optional OAuth flow requests `public_repo`, allowing public-repository access only for a new grant. It is broader than selected-repository tokens and is not recommended when narrower access is sufficient. Access tokens are stored in Keychain and passed to libgit2 through in-memory credential callbacks; they are never written into clone URLs or Git configuration. Users with an older `repo` grant must revoke it in GitHub’s Authorized OAuth Apps settings; requesting a smaller scope does not revoke previously granted access. Use a fine-grained token for private notebooks.
+
+## Configure Android
+
+The Android client ID is a public `BuildConfig` value in `apps/android/app/build.gradle.kts`. Replace `GITHUB_OAUTH_CLIENT_ID` there if the project moves to another OAuth App. Do not add a client secret. Build the app, open **GitHub account**, and choose **Connect public repositories with GitHub**.
+
+Android requests the same `public_repo` scope, stores the resulting token using Android Keystore, and supplies it to JGit only through an in-memory credentials provider.
 
 ## Simulator signing
 

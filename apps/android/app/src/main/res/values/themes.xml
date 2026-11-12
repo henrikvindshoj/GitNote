@@ -1,0 +1,9 @@
+<resources>
+    <style name="Theme.GitNote" parent="android:style/Theme.Material.Light.NoActionBar">
+        <item name="android:fontFamily">sans</item>
+        <item name="android:colorAccent">#5B4FE9</item>
+        <item name="android:navigationBarColor">#F7F7FC</item>
+        <item name="android:statusBarColor">#F7F7FC</item>
+        <item name="android:windowLightStatusBar">true</item>
+    </style>
+</resources>
