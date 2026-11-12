@@ -4,7 +4,15 @@ updates:
     directory: /apps/web
     schedule:
       interval: weekly
+    groups:
+      web-dependencies:
+        patterns:
+          - "*"
   - package-ecosystem: github-actions
     directory: /
     schedule:
       interval: weekly
+    groups:
+      github-actions:
+        patterns:
+          - "*"
