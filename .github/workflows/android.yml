@@ -1,0 +1,26 @@
+name: Android
+
+on:
+  push:
+    paths:
+      - "apps/android/**"
+      - ".github/workflows/android.yml"
+  pull_request:
+    paths:
+      - "apps/android/**"
+      - ".github/workflows/android.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    timeout-minutes: 20
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/android
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Lint, test, and build
+        run: ./gradlew --no-daemon lintDebug test assembleDebug assembleRelease

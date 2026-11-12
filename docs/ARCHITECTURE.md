@@ -5,7 +5,7 @@
 GitNote uses a product monorepo rather than a shared-runtime monolith. Each client owns its UI, local persistence, and Git integration:
 
 - `apps/ios`: SwiftUI, Keychain, Files integration, and libgit2.
-- `apps/android`: future Kotlin/Compose client and native Git adapter.
+- `apps/android`: Kotlin/Compose client, JGit adapter, Android Keystore, and app-private working copies.
 - `apps/web`: React/TypeScript, Tiptap, IndexedDB, and a GitHub REST adapter. Browser copies are note snapshots, not local Git working trees.
 - `services/api`: optional future webhooks, notification relay, or account services. Token-authenticated requests, optional public-repository OAuth device flow, and repository contents travel directly between the client and GitHub.
 - `packages/contracts`: OpenAPI and other platform-neutral schemas. Generated clients may be produced within each platform folder.
@@ -36,6 +36,23 @@ Sync explicitly fetches GitHub branch heads into remote-tracking references usin
 
 Fast-forward checkout locks HEAD and the local branch, rechecks local status, and uses safe checkout with ignored-file overwrite protection. Dirty copies behind GitHub and diverged histories stop with an explanation; no merge, reset-to-remote, or automatic stash occurs. The sync result distinguishes downloaded changes, uploaded commits, and an already-current copy. The Changes tab reports file differences, so it can be empty even when the branch contains unpublished commits.
 
+## Android layers
+
+```text
+Compose repository/account UI + rich Markdown editor
+                         |
+                    AppViewModel
+                 /       |        \
+          GitHub HTTP   JGit   workspace metadata
+                                  + private files
+```
+
+The Android client keeps each repository as a real Git working copy in app-private storage. JGit handles clone, fetch, status, commit, and push. Credentials are encrypted with an AES-GCM key held by Android Keystore and are passed to JGit only in memory. GitHub device login uses the public native-app client ID without a client secret; a fine-grained selected-repository token remains available for narrower or private access.
+
+Android sync mirrors the optimistic iOS policy: fetch first, fast-forward only a clean copy, commit and push compatible local edits, and refuse dirty-behind or diverged histories. Dirty state also includes unpublished local commits so a failed push cannot appear synchronized.
+
+Android's Storage Access Framework exposes document URIs, while JGit needs a filesystem-backed working tree. The MVP therefore exports ZIP copies through the system picker and does not claim live Obsidian access to its private clone. A future document provider or coordinated external-workspace mode is required for safe shared editing.
+
 ## Web layers
 
 ```text
@@ -59,7 +76,7 @@ The MVP pins SwiftGitX 0.4.x, which wraps libgit2 and supports Apple platforms t
 
 ## Security boundaries
 
-- iOS GitHub OAuth tokens live only in Keychain. Web personal access tokens live only in memory and are cleared on reload or disconnect.
+- iOS GitHub OAuth tokens live only in Keychain. Android credentials are encrypted under Android Keystore. Web personal access tokens live only in memory and are cleared on reload or disconnect.
 - Push tokens are passed to libgit2 through an in-memory credential callback and are never persisted in Git configuration.
 - HTTP uses GitHub's HTTPS API and standard URLSession trust handling.
 - Git URLs and resolved origin/push URLs must match the expected HTTPS GitHub repository, with no credentials, query, or fragment. Authenticated redirects are disabled.
