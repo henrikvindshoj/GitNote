@@ -12,28 +12,27 @@
     "preview": "vite preview --host 127.0.0.1",
     "test": "vitest run",
     "test:e2e": "playwright test",
-    "format": "prettier --write src tests *.ts *.json *.html",
-    "format:check": "prettier --check src tests *.ts *.json *.html"
+    "format": "prettier --write src tests public *.ts *.json *.html",
+    "format:check": "prettier --check src tests public *.ts *.json *.html"
   },
   "dependencies": {
     "@tiptap/markdown": "^3.31.3",
     "@tiptap/react": "^3.31.3",
     "@tiptap/starter-kit": "^3.31.3",
-    "lucide-react": "^0.577.0",
+    "lucide-react": "^1.72.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0"
   },
   "devDependencies": {
     "@playwright/test": "^1.58.2",
-    "@types/node": "^22.19.0",
+    "@types/node": "^26.6.6",
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
-    "@vitejs/plugin-react": "^5.1.0",
+    "@vitejs/plugin-react": "^6.1.1",
     "fake-indexeddb": "^6.2.4",
     "prettier": "^3.9.6",
-    "typescript": "~5.9.3",
-    "vite": "^7.3.1",
-    "vite-plugin-pwa": "^1.2.0",
-    "vitest": "^4.0.18"
+    "typescript": "~7.0.2",
+    "vite": "^8.3.8",
+    "vitest": "^5.1.0"
   }
 }
